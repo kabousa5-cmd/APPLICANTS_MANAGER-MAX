@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>BLS Applicant Manager Pro</title>
+    <style>
+        body {
+            width: 380px;
+            min-height: 400px;
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #2c3e50;
+            font-size: 12px;
+        }
+
+        .container {
+            padding: 12px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 12px;
+            color: white;
+        }
+
+        .header h1 {
+            margin: 0 0 4px 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .header .subtitle {
+            font-size: 10px;
+            opacity: 0.9;
+            margin: 0;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dashboard-link {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            text-decoration: none;
+            display: block;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .dashboard-link:hover {
+            transform: translateY(-2px);
+        }
+
+        .sync-info {
+            background: #f0f4ff;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            text-align: center;
+            margin-bottom: 8px;
+            color: #667eea;
+        }
+
+        .group-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .group-badge {
+            background: #ecf0f1;
+            color: #2c3e50;
+            padding: 6px 10px;
+            border-radius: 16px;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+            display: flex;
+            align-items: center;
+        }
+
+        .group-badge:hover {
+            background: #3498db;
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .group-badge.active {
+            background: #3498db;
+            color: white;
+            border-color: #2980b9;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+        }
+
+        select, button {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ecf0f1;
+            border-radius: 6px;
+            font-size: 11px;
+            margin-bottom: 6px;
+            background: white;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        button {
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+            border: none;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+            border: none;
+        }
+
+        .btn-warning:hover {
+            background: #e67e22;
+        }
+
+        .status {
+            text-align: center;
+            padding: 6px;
+            background: #ecf0f1;
+            border-radius: 6px;
+            font-size: 11px;
+            margin-top: 8px;
+            color: #2c3e50;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+        .applicant-count {
+            text-align: center;
+            font-size: 10px;
+            color: #7f8c8d;
+            margin: 6px 0;
+            font-weight: 600;
+        }
+
+        #applicant-list {
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid #ecf0f1;
+            border-radius: 6px;
+            background: white;
+            margin-bottom: 8px;
+        }
+
+        #applicant-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #applicant-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        #applicant-list::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+
+        #applicant-list::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .applicant-item {
+            transition: background 0.2s, border-left 0.2s;
+        }
+
+        .applicant-item:hover {
+            background: #f8f9fa !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💼 BLS Applicant Manager Pro</h1>
+            <p class="subtitle">Chrome Extension + Web Dashboard</p>
+        </div>
+
+        <!-- Dashboard Link -->
+        <a href="https://bls-sync-api-production.up.railway.app" target="_blank" class="dashboard-link">
+            🌐 Open Web Dashboard
+        </a>
+
+        <div class="sync-info">
+            💡 Use dashboard to manage or import/export below
+        </div>
+
+        <!-- Groups Section -->
+        <div class="card">
+            <div class="section-title">📁 Groups</div>
+            <div id="group-filters" class="group-badges">
+                <!-- Group badges will be dynamically inserted here -->
+            </div>
+            <div class="applicant-count" id="applicant-count">0 applicant(s) total</div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card">
+            <div class="section-title">⚡ Quick Actions</div>
+            
+            <!-- Group Filter Dropdown -->
+            <div class="control-group">
+                <select id="group-filter">
+                    <option value="">All Groups</option>
+                </select>
+            </div>
+            
+            <!-- Applicant List with Photos -->
+            <div id="applicant-list">
+                <div style="padding: 20px; text-align: center; color: #95a5a6;">
+                    Loading...
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button id="sync-button" class="btn-primary">🔄 Sync</button>
+                <button id="download-applicants" class="btn-success">💾 Export</button>
+                <button id="upload-applicants" class="btn-warning">📤 Import</button>
+            </div>
+        </div>
+
+        <!-- Status -->
+        <div class="status" id="status">✅ Ready - Auto-sync enabled</div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
