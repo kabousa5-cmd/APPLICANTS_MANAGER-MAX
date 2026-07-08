@@ -197,6 +197,14 @@
   }
   .name-cell strong{font-weight:600;color:var(--ink);display:block;}
   .name-cell small{color:var(--ink-faint);font-size:11.5px;}
+  .name-cell.holdable{position:relative;cursor:pointer;user-select:none;-webkit-user-select:none;overflow:hidden;}
+  .name-cell.holdable .hold-fill{
+    position:absolute;left:0;top:0;bottom:0;width:0%;
+    background:var(--seal-tint);z-index:0;pointer-events:none;
+    transition:width linear;
+  }
+  .name-cell.holdable strong,.name-cell.holdable small{position:relative;z-index:1;}
+  .name-cell.holdable.holding strong{color:var(--seal-dark);}
   .mono{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:0.3px;}
   .group-tag{
     font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--brass-light);
@@ -528,7 +536,7 @@
       return `<tr>
         <td class="row-no">${String(idx+1).padStart(3,'0')}</td>
         <td>${a.photo ? `<img class="photo-thumb" src="${a.photo}">` : '<div class="no-photo">—</div>'}</td>
-        <td class="name-cell"><strong>${a.FirstName||''} ${a.LastName||''}</strong>${(a.City||a.PostalCode) ? `<small>${[a.City,a.PostalCode].filter(Boolean).join(', ')}</small>` : ''}</td>
+        <td class="name-cell holdable" data-idx="${idx}" onmousedown="holdStart(event,${idx})" onmouseup="holdEnd()" onmouseleave="holdEnd()" ontouchstart="holdStart(event,${idx})" ontouchend="holdEnd()" ontouchcancel="holdEnd()"><div class="hold-fill"></div><strong>${a.FirstName||''} ${a.LastName||''}</strong>${(a.City||a.PostalCode) ? `<small>${[a.City,a.PostalCode].filter(Boolean).join(', ')}</small>` : ''}</td>
         <td class="mono">${a.PassportNo||''}</td>
         <td>${a.DateOfBirth || '<span class="dash">—</span>'}</td>
         <td>${a.PlaceOfBirth || '<span class="dash">—</span>'}</td>
@@ -729,8 +737,43 @@
     stamp('Photo downloaded');
   }
 
-  async function del(i){
-    if (!confirm('Delete this applicant?')) return;
+  const HOLD_MS = 10000;
+  let holdTimer = null, holdCell = null;
+
+  function holdStart(evt, i){
+    if (holdTimer) return;
+    holdCell = evt.currentTarget;
+    holdCell.classList.add('holding');
+    const fill = holdCell.querySelector('.hold-fill');
+    fill.style.transition = 'none';
+    fill.style.width = '0%';
+    // force reflow so the transition below actually animates from 0
+    void fill.offsetWidth;
+    fill.style.transition = `width ${HOLD_MS}ms linear`;
+    fill.style.width = '100%';
+
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      holdEnd();
+      del(i, true);
+    }, HOLD_MS);
+  }
+
+  function holdEnd(){
+    if (holdTimer){ clearTimeout(holdTimer); holdTimer = null; }
+    if (holdCell){
+      holdCell.classList.remove('holding');
+      const fill = holdCell.querySelector('.hold-fill');
+      if (fill){
+        fill.style.transition = 'none';
+        fill.style.width = '0%';
+      }
+      holdCell = null;
+    }
+  }
+
+  async function del(i, skipConfirm){
+    if (!skipConfirm && !confirm('Delete this applicant?')) return;
     const passportNo = apps[i].PassportNo;
     if (!passportNo){ stamp('No passport number on record', 'error'); return; }
     try{
