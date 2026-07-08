@@ -413,13 +413,15 @@
           </select>
         </div>
         <div class="fg"><label>Issue place</label>
-          <select id="fi" onkeypress="handleEnter(event,'fa1')">
+          <select id="fi" onkeypress="handleEnter(event,'fpid')">
             <option value="">Select…</option>
             <option>CASABLANCA</option><option>NADOR</option><option>RABAT</option>
             <option>TETOUAN</option><option>AGADIR</option><option>TANGER</option>
             <option>FES</option><option>MARRAKECH</option><option>MEKNES</option><option>OUJDA</option>
           </select>
         </div>
+        <div class="fg"><label>Passport validity date</label><input type="date" id="fpid" onkeypress="handleEnter(event,'fped')"></div>
+        <div class="fg"><label>Passport expiry date</label><input type="date" id="fped" onkeypress="handleEnter(event,'fa1')"></div>
         <div class="fg full"><label>Home address</label><input id="fa1" onkeypress="handleEnter(event,'fc')"></div>
         <div class="fg"><label>City</label><input id="fc" onkeypress="handleEnter(event,'fpc')"></div>
         <div class="fg"><label>Postal code</label><input id="fpc" onkeypress="handleEnter(event,'fgen')"></div>
@@ -586,7 +588,7 @@
     currentPhotoBase64 = null;
     document.getElementById('modal-title').textContent = 'Add applicant';
     document.getElementById('fg').value = filter === 'all' ? '' : filter;
-    ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph','fgen','fms','fpj','frel'].forEach(id => document.getElementById(id).value = '');
+    ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph','fgen','fms','fpj','frel','fpid','fped'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('fp').removeAttribute('readonly');
     document.getElementById('fp-lock-note').style.display = 'none';
     resetPhotoSlot(null);
@@ -613,6 +615,8 @@
     document.getElementById('fd').value = a.DateOfBirth || '';
     document.getElementById('fb').value = a.PlaceOfBirth || '';
     document.getElementById('fi').value = a.IssuePlace || '';
+    document.getElementById('fpid').value = a.PassportValidityDate || '';
+    document.getElementById('fped').value = a.PassportExpiryDate || '';
     document.getElementById('fa1').value = a.HomeAddressLine1 || '';
     document.getElementById('fc').value = a.City || '';
     document.getElementById('fpc').value = a.PostalCode || '';
@@ -703,6 +707,8 @@
       DateOfBirth: document.getElementById('fd').value,
       PlaceOfBirth: document.getElementById('fb').value,
       IssuePlace: document.getElementById('fi').value,
+      PassportValidityDate: document.getElementById('fpid').value,
+      PassportExpiryDate: document.getElementById('fped').value,
       HomeAddressLine1: document.getElementById('fa1').value.trim(),
       City: document.getElementById('fc').value.trim(),
       PostalCode: document.getElementById('fpc').value.trim(),
