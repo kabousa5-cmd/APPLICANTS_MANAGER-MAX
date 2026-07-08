@@ -430,6 +430,7 @@
   let apps = [], groups = [], editIdx = -1, filter = 'all';
   let currentPhotoBase64 = null;
   let isModalOpen = false;
+  let originalPassportNo = null; // FIX: identity used for atomic edit, independent of the (possibly edited) passport field
 
   function pad(str, len){
     str = (str || '').toUpperCase().replace(/[^A-Z0-9]/g, '<');
@@ -546,6 +547,7 @@
   function showAddModal(){
     isModalOpen = true;
     editIdx = -1;
+    originalPassportNo = null;
     currentPhotoBase64 = null;
     document.getElementById('modal-title').textContent = 'Add applicant';
     document.getElementById('fg').value = filter === 'all' ? '' : filter;
@@ -561,6 +563,7 @@
   function edit(i){
     isModalOpen = true;
     editIdx = i;
+    originalPassportNo = apps[i].PassportNo;
     currentPhotoBase64 = apps[i].photo;
     const a = apps[i];
     document.getElementById('modal-title').textContent = 'Edit applicant';
@@ -647,7 +650,7 @@
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving…';
 
-    const a = {
+    const record = {
       group: document.getElementById('fg').value,
       FirstName: firstVal,
       LastName: lastVal,
@@ -662,15 +665,34 @@
       _updatedAt: Date.now()
     };
 
-    if (editIdx >= 0) apps[editIdx] = a; else apps.push(a);
-    if (a.group && !groups.includes(a.group)) groups.push(a.group);
-
     try{
-      await sync();
+      if (editIdx >= 0){
+        // FIX: atomic update targeted at the ORIGINAL passport number.
+        // This edits the one record in place — it cannot create a duplicate,
+        // even if the passport number itself was changed, and even if another
+        // client's background sync races with this request.
+        const r = await fetch(API + '/api/applicants/' + encodeURIComponent(originalPassportNo), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(record)
+        });
+        if (!r.ok){
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || 'Update failed');
+        }
+        const d = await r.json();
+        apps = d.data.applicants;
+        groups = d.data.groups;
+      } else {
+        apps.push(record);
+        if (record.group && !groups.includes(record.group)) groups.push(record.group);
+        await sync();
+      }
+      updateUI();
       closeModal();
       stamp('Saved');
     }catch(e){
-      stamp('Save failed', 'error');
+      stamp(e.message || 'Save failed', 'error');
     }finally{
       saveBtn.disabled = false;
       saveBtn.textContent = 'Save applicant';
