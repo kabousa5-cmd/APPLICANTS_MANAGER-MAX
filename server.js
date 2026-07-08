@@ -40,18 +40,24 @@ app.post('/api/applicants/sync', (req, res) => {
   const { applicants, groups } = req.body;
   if (!Array.isArray(applicants)) return res.status(400).json({ error: 'Invalid: applicants must be an array' });
 
+  // FIX: normalize the key (trim whitespace) so a passport number that picked up
+  // stray spaces from autofill/scraping doesn't get treated as a different record
+  const normKey = (p) => (p || '').trim();
+
   // Build map of current server applicants
-  const serverMap = new Map(sharedData.applicants.map(a => [a.PassportNo, a]));
+  const serverMap = new Map(sharedData.applicants.map(a => [normKey(a.PassportNo), a]));
 
   for (const incoming of applicants) {
-    if (!incoming.PassportNo) continue; // skip entries with no passport key
+    const key = normKey(incoming.PassportNo);
+    if (!key) continue; // skip entries with no passport key
 
-    const existing = serverMap.get(incoming.PassportNo);
+    const existing = serverMap.get(key);
 
     if (!existing) {
       // New applicant — always add
-      serverMap.set(incoming.PassportNo, {
+      serverMap.set(key, {
         ...incoming,
+        PassportNo: key,
         _updatedAt: incoming._updatedAt || Date.now()
       });
     } else {
@@ -59,8 +65,9 @@ app.post('/api/applicants/sync', (req, res) => {
       const existingTime = existing._updatedAt  || 0;
       const incomingTime = incoming._updatedAt  || 0;
       if (incomingTime >= existingTime) {
-        serverMap.set(incoming.PassportNo, {
+        serverMap.set(key, {
           ...incoming,
+          PassportNo: key,
           _updatedAt: incomingTime || Date.now()
         });
       }
@@ -80,6 +87,46 @@ app.post('/api/applicants/sync', (req, res) => {
     data: sharedData,
     stats: { totalApplicants: sharedData.applicants.length, totalGroups: sharedData.groups.length }
   });
+});
+
+// FIX: Atomic edit — updates the ONE record matching the original passport number.
+// Unlike /api/applicants/sync (a full-list merge), this can never create a duplicate,
+// even if the passport number field itself is being changed as part of the edit,
+// and even if another client's stale full-list sync races with it.
+app.put('/api/applicants/:passportNo', (req, res) => {
+  const originalPassportNo = decodeURIComponent(req.params.passportNo).trim();
+  const updated = req.body;
+
+  if (!updated || !updated.PassportNo || !updated.PassportNo.trim()) {
+    return res.status(400).json({ error: 'PassportNo is required in the request body' });
+  }
+
+  const newPassportNo = updated.PassportNo.trim();
+
+  // Block silently merging into a different existing applicant if the new
+  // passport number collides with someone else's record
+  const clash = sharedData.applicants.find(
+    a => a.PassportNo === newPassportNo && a.PassportNo !== originalPassportNo
+  );
+  if (clash) {
+    return res.status(409).json({ error: `Passport ${newPassportNo} is already used by another applicant` });
+  }
+
+  const idx = sharedData.applicants.findIndex(a => a.PassportNo === originalPassportNo);
+  const record = { ...updated, PassportNo: newPassportNo, _updatedAt: Date.now() };
+
+  if (idx >= 0) {
+    sharedData.applicants[idx] = record; // update the exact record in place
+  } else {
+    sharedData.applicants.push(record); // original wasn't found — add it rather than lose the edit
+  }
+
+  if (record.group && !sharedData.groups.includes(record.group)) {
+    sharedData.groups.push(record.group);
+  }
+  sharedData.lastModified = new Date().toISOString();
+
+  res.json({ success: true, data: sharedData });
 });
 
 // FIX: Atomic group delete — safe, doesn't require client to send full applicant list
