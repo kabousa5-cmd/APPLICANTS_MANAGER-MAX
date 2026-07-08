@@ -534,8 +534,8 @@
         <td>${a.PlaceOfBirth || '<span class="dash">—</span>'}</td>
         <td>${a.group ? `<span class="group-tag">${a.group}</span>` : '<span class="dash">—</span>'}</td>
         <td><div class="row-actions">
+          ${a.photo ? `<button class="icon-btn" onclick="downloadPhoto(${idx})">Photo</button>` : ''}
           <button class="icon-btn" onclick="edit(${idx})">Edit</button>
-          <button class="icon-btn del" onclick="del(${idx})">Delete</button>
         </div></td>
       </tr>`;
     }).join('');
@@ -710,6 +710,23 @@
       saveBtn.disabled = false;
       saveBtn.textContent = 'Save applicant';
     }
+  }
+
+  function downloadPhoto(i){
+    const a = apps[i];
+    if (!a || !a.photo){ stamp('No photo on file', 'error'); return; }
+    const match = /^data:image\/(\w+);base64,/.exec(a.photo);
+    const ext = match ? match[1].replace('jpeg','jpg') : 'jpg';
+    const safeName = [a.FirstName, a.LastName].filter(Boolean).join('_').replace(/[^a-zA-Z0-9_-]/g, '') || 'applicant';
+    const passport = (a.PassportNo || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    const filename = `${safeName}${passport ? '_' + passport : ''}.${ext}`;
+    const l = document.createElement('a');
+    l.href = a.photo;
+    l.download = filename;
+    document.body.appendChild(l);
+    l.click();
+    l.remove();
+    stamp('Photo downloaded');
   }
 
   async function del(i){
