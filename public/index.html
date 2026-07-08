@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manifest — BLS Applicant Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EEF1EC;
+    --paper-deep:#E4E8E0;
+    --line:#CCD3C7;
+    --ink:#161B2C;
+    --ink-soft:#4B5568;
+    --ink-faint:#8A93A0;
+    --navy:#1B2440;
+    --navy-deep:#10152A;
+    --seal:#A5312B;
+    --seal-dark:#7C231E;
+    --seal-tint:#F4E3E1;
+    --brass:#9C7A3C;
+    --brass-light:#C9A86A;
+    --white:#FFFFFF;
+    --radius:2px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    font-family:'IBM Plex Sans', sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:'';
+    position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(27,36,64,0.035) 1px, transparent 0);
+    background-size:22px 22px;
+  }
+  .wrap{max-width:1280px;margin:0 auto;padding:0 28px 80px;position:relative;z-index:1;}
+  a{color:inherit;}
+
+  /* ===== Header ===== */
+  header.topbar{
+    background:linear-gradient(180deg,var(--navy) 0%, var(--navy-deep) 100%);
+    color:var(--white);
+    padding:22px 0;
+    margin-bottom:0;
+    border-bottom:3px solid var(--brass);
+  }
+  .topbar-inner{
+    max-width:1280px;margin:0 auto;padding:0 28px;
+    display:flex;align-items:center;justify-content:space-between;gap:20px;
+  }
+  .brand{display:flex;align-items:center;gap:16px;}
+  .seal-mark{
+    width:46px;height:46px;border-radius:50%;
+    border:2px solid var(--brass-light);
+    display:flex;align-items:center;justify-content:center;
+    position:relative;flex-shrink:0;
+  }
+  .seal-mark::before{
+    content:'';position:absolute;inset:4px;border-radius:50%;
+    border:1px dashed rgba(201,168,106,0.55);
+  }
+  .seal-mark span{
+    font-family:'Fraunces',serif;font-weight:700;font-size:15px;
+    color:var(--brass-light);letter-spacing:0.5px;
+  }
+  .brand-text h1{
+    font-family:'Fraunces',serif;font-weight:600;font-size:24px;letter-spacing:0.3px;
+  }
+  .brand-text small{
+    display:block;color:rgba(255,255,255,0.55);font-size:11.5px;
+    letter-spacing:1.6px;text-transform:uppercase;margin-top:3px;font-weight:500;
+  }
+  .topbar-right{display:flex;align-items:center;gap:14px;}
+  .live-chip{
+    display:flex;align-items:center;gap:8px;
+    font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;font-weight:600;
+    color:#8fd19e;border:1px solid rgba(143,209,158,0.35);
+    padding:7px 14px;border-radius:20px;background:rgba(143,209,158,0.08);
+  }
+  .live-dot{width:7px;height:7px;border-radius:50%;background:#4CAF63;animation:pulse 1.8s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.55;transform:scale(1.25);}}
+  .btn{
+    font-family:'IBM Plex Sans',sans-serif;
+    border:1px solid transparent;cursor:pointer;
+    padding:11px 20px;font-size:13.5px;font-weight:600;
+    letter-spacing:0.3px;border-radius:var(--radius);
+    display:inline-flex;align-items:center;gap:8px;
+    transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn-seal{background:var(--seal);color:var(--white);}
+  .btn-seal:hover{background:var(--seal-dark);}
+  .btn-ghost{background:transparent;color:var(--white);border-color:rgba(255,255,255,0.3);}
+  .btn-ghost:hover{background:rgba(255,255,255,0.08);}
+  .btn-navy{background:var(--navy);color:var(--white);}
+  .btn-navy:hover{background:var(--navy-deep);}
+  .btn-outline{background:var(--white);color:var(--ink);border-color:var(--line);}
+  .btn-outline:hover{border-color:var(--ink-soft);}
+  .btn-danger{background:var(--white);color:var(--seal);border-color:#E3BFBB;}
+  .btn-danger:hover{background:var(--seal-tint);}
+  .btn:disabled{opacity:0.5;cursor:not-allowed;}
+
+  /* ===== Stat tickets ===== */
+  .tickets{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:0;margin-top:28px;
+    border:1px solid var(--line);background:var(--white);
+  }
+  .ticket{
+    padding:22px 26px;position:relative;
+    border-right:1px dashed var(--line);
+  }
+  .ticket:last-child{border-right:none;}
+  .ticket-label{
+    font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;
+    color:var(--ink-faint);font-weight:600;margin-bottom:10px;
+  }
+  .ticket-value{
+    font-family:'Fraunces',serif;font-weight:600;font-size:38px;color:var(--navy);line-height:1;
+  }
+  .ticket-value sup{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--brass);font-weight:600;margin-left:6px;}
+  .ticket::after{
+    content:'';position:absolute;right:-7px;top:50%;transform:translateY(-50%);
+    width:14px;height:14px;border-radius:50%;background:var(--paper);
+    border:1px solid var(--line);
+  }
+  .ticket:last-child::after{display:none;}
+
+  /* ===== Toolbar ===== */
+  .toolbar{
+    display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+    margin-top:26px;
+  }
+  .search-box{
+    flex:1;min-width:240px;position:relative;
+  }
+  .search-box input{
+    width:100%;padding:12px 16px 12px 38px;
+    border:1px solid var(--line);background:var(--white);
+    font-family:'IBM Plex Sans',sans-serif;font-size:14px;color:var(--ink);
+    border-radius:var(--radius);
+  }
+  .search-box input:focus{outline:none;border-color:var(--navy);}
+  .search-box::before{
+    content:'⌕';position:absolute;left:14px;top:50%;transform:translateY(-50%);
+    color:var(--ink-faint);font-size:16px;pointer-events:none;
+  }
+
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;}
+  .chip{
+    padding:8px 16px;border:1px solid var(--line);background:var(--white);
+    font-size:12.5px;font-weight:600;letter-spacing:0.3px;color:var(--ink-soft);
+    border-radius:20px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;
+    transition:all .15s ease;
+  }
+  .chip:hover{border-color:var(--navy);color:var(--navy);}
+  .chip.active{background:var(--navy);border-color:var(--navy);color:var(--white);}
+  .chip .x{opacity:0.6;font-weight:700;}
+  .chip .x:hover{opacity:1;color:var(--seal);}
+
+  /* ===== Manifest table ===== */
+  .manifest{
+    margin-top:26px;border:1px solid var(--line);background:var(--white);
+  }
+  .manifest-head{
+    display:flex;align-items:baseline;justify-content:space-between;
+    padding:20px 26px;border-bottom:1px solid var(--line);
+  }
+  .manifest-head h2{
+    font-family:'Fraunces',serif;font-weight:600;font-size:19px;
+  }
+  .manifest-head span{font-size:12px;color:var(--ink-faint);font-family:'IBM Plex Mono',monospace;}
+  table{width:100%;border-collapse:collapse;}
+  thead th{
+    text-align:left;padding:12px 20px;font-size:10.5px;letter-spacing:1.2px;
+    text-transform:uppercase;color:var(--ink-faint);font-weight:600;
+    border-bottom:1px solid var(--line);background:var(--paper-deep);
+  }
+  tbody td{
+    padding:16px 20px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:middle;
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#F8F9F6;}
+  .row-no{font-family:'IBM Plex Mono',monospace;color:var(--ink-faint);font-size:12px;}
+  .photo-thumb{
+    width:42px;height:52px;object-fit:cover;border:1px solid var(--line);
+  }
+  .no-photo{
+    width:42px;height:52px;background:var(--paper-deep);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:18px;
+  }
+  .name-cell strong{font-weight:600;color:var(--ink);display:block;}
+  .name-cell small{color:var(--ink-faint);font-size:11.5px;}
+  .mono{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:0.3px;}
+  .group-tag{
+    font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--brass-light);
+    color:var(--brass);border-radius:20px;background:#FBF6EC;white-space:nowrap;
+  }
+  .dash{color:var(--ink-faint);}
+  .row-actions{display:flex;gap:6px;}
+  .icon-btn{
+    padding:7px 12px;background:var(--white);border:1px solid var(--line);
+    border-radius:var(--radius);cursor:pointer;font-size:12.5px;font-weight:600;color:var(--ink-soft);
+    transition:all .15s ease;
+  }
+  .icon-btn:hover{border-color:var(--navy);color:var(--navy);}
+  .icon-btn.del:hover{border-color:var(--seal);color:var(--seal);}
+
+  .empty-state{text-align:center;padding:90px 20px;color:var(--ink-faint);}
+  .empty-state .mark{font-family:'Fraunces',serif;font-size:44px;color:var(--line);margin-bottom:14px;}
+  .empty-state p{font-size:14px;}
+
+  /* ===== Modal — passport data page ===== */
+  .modal{
+    display:none;position:fixed;inset:0;background:rgba(16,21,42,0.6);
+    z-index:1000;align-items:center;justify-content:center;padding:24px;
+  }
+  .modal.active{display:flex;}
+  .page{
+    background:var(--white);width:100%;max-width:760px;max-height:92vh;overflow-y:auto;
+    border:1px solid var(--line);position:relative;
+  }
+  .page-header{
+    background:var(--navy);color:var(--white);padding:22px 28px;
+    display:flex;justify-content:space-between;align-items:center;
+    border-bottom:3px solid var(--brass);
+  }
+  .page-header h2{font-family:'Fraunces',serif;font-weight:600;font-size:20px;}
+  .page-header small{display:block;color:rgba(255,255,255,0.5);font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-top:4px;}
+  .close-btn{
+    background:transparent;border:1px solid rgba(255,255,255,0.3);color:var(--white);
+    width:34px;height:34px;font-size:18px;cursor:pointer;border-radius:var(--radius);
+  }
+  .close-btn:hover{background:rgba(255,255,255,0.1);}
+  .page-body{padding:28px;display:grid;grid-template-columns:160px 1fr;gap:28px;}
+  .photo-panel{display:flex;flex-direction:column;gap:12px;}
+  .photo-slot{
+    width:160px;height:200px;border:1px solid var(--line);background:var(--paper-deep);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;
+  }
+  .photo-slot img{width:100%;height:100%;object-fit:cover;}
+  .photo-slot .ph{color:var(--ink-faint);font-size:34px;}
+  .photo-panel input[type=file]{font-size:11.5px;}
+  .upload-status{font-size:11.5px;color:var(--ink-soft);min-height:16px;}
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .fields .full{grid-column:1 / -1;}
+  .fg label{
+    display:block;font-size:10.5px;letter-spacing:1px;text-transform:uppercase;
+    color:var(--ink-faint);font-weight:600;margin-bottom:7px;
+  }
+  .fg input, .fg select{
+    width:100%;padding:10px 12px;border:1px solid var(--line);
+    font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;background:var(--paper);
+    border-radius:var(--radius);
+  }
+  .fg input:focus, .fg select:focus{outline:none;border-color:var(--navy);background:var(--white);}
+
+  .mrz{
+    margin:0 28px 24px;padding:16px 18px;background:var(--navy-deep);
+    font-family:'IBM Plex Mono',monospace;color:#8fd19e;font-size:12.5px;
+    letter-spacing:2px;line-height:1.9;white-space:pre;overflow-x:auto;
+  }
+  .mrz-label{
+    padding:0 28px;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;
+    color:var(--ink-faint);margin-bottom:8px;font-weight:600;
+  }
+  .page-footer{
+    padding:18px 28px;border-top:1px solid var(--line);
+    display:flex;justify-content:flex-end;gap:10px;background:var(--paper-deep);
+  }
+
+  /* ===== Stamp toast ===== */
+  .stamp{
+    position:fixed;bottom:34px;right:34px;z-index:2000;
+    border:3px solid var(--seal);color:var(--seal);
+    padding:12px 22px;font-family:'Fraunces',serif;font-weight:700;font-size:15px;
+    letter-spacing:1.5px;text-transform:uppercase;background:rgba(255,255,255,0.96);
+    transform:rotate(-4deg) scale(1.5);opacity:0;
+    animation:stampIn .35s cubic-bezier(.2,1.4,.4,1) forwards, stampOut .3s ease 2.4s forwards;
+  }
+  .stamp.error{border-color:var(--ink-soft);color:var(--ink-soft);}
+  @keyframes stampIn{to{transform:rotate(-4deg) scale(1);opacity:1;}}
+  @keyframes stampOut{to{opacity:0;transform:rotate(-4deg) scale(0.96) translateY(6px);}}
+
+  @media (max-width: 720px){
+    .page-body{grid-template-columns:1fr;}
+    .photo-panel{flex-direction:row;align-items:flex-start;}
+    .fields{grid-template-columns:1fr;}
+    .topbar-inner{flex-direction:column;align-items:flex-start;gap:14px;}
+  }
+
+  :focus-visible{outline:2px solid var(--brass);outline-offset:2px;}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important;}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="seal-mark"><span>AM</span></div>
+      <div class="brand-text">
+        <h1>Manifest</h1>
+        <small>BLS Applicant Control · Spain · Morocco · Portugal</small>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="live-chip"><span class="live-dot"></span> Syncing live</span>
+      <button class="btn btn-ghost" onclick="syncNow()">↻ Sync now</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="tickets">
+    <div class="ticket">
+      <div class="ticket-label">Total applicants</div>
+      <div class="ticket-value" id="total-applicants">0</div>
+    </div>
+    <div class="ticket">
+      <div class="ticket-label">Groups on file</div>
+      <div class="ticket-value" id="total-groups">0</div>
+    </div>
+    <div class="ticket">
+      <div class="ticket-label">With photo</div>
+      <div class="ticket-value" id="with-photos">0<sup id="photo-pct"></sup></div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search-box">
+      <input type="text" id="search" placeholder="Search by name or passport number" oninput="filterApplicants()">
+    </div>
+    <button class="btn btn-seal" onclick="showAddModal()">+ Add applicant</button>
+    <button class="btn btn-outline" onclick="showAddGroupModal()">+ New group</button>
+    <button class="btn btn-outline" onclick="importData()">Import JSON</button>
+    <button class="btn btn-outline" onclick="exportData()">Export JSON</button>
+    <button class="btn btn-danger" onclick="deleteAll()">Delete all</button>
+  </div>
+
+  <div class="chips" id="groups-filter"></div>
+
+  <div class="manifest">
+    <div class="manifest-head">
+      <h2>Applicant manifest</h2>
+      <span id="manifest-meta">—</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>No.</th><th>Photo</th><th>Name</th><th>Passport</th>
+          <th>Date of birth</th><th>Place of birth</th><th>Group</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="8"><div class="empty-state"><div class="mark">M</div><p>Loading manifest…</p></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<div id="modal" class="modal">
+  <div class="page">
+    <div class="page-header">
+      <div>
+        <h2 id="modal-title">Add applicant</h2>
+        <small>Passport data page</small>
+      </div>
+      <button class="close-btn" onclick="closeModal()">×</button>
+    </div>
+    <div class="page-body">
+      <div class="photo-panel">
+        <div class="photo-slot" id="photo-slot"><span class="ph">＋</span></div>
+        <input type="file" id="fph" accept="image/*">
+        <div id="upload-status" class="upload-status"></div>
+        <div class="fg"><label>Group</label>
+          <select id="fg" onkeypress="handleEnter(event,'ff')">
+            <option value="">No group</option>
+          </select>
+        </div>
+      </div>
+      <div class="fields">
+        <div class="fg"><label>First name *</label><input id="ff" oninput="updateMrz()" onkeypress="handleEnter(event,'fl')"></div>
+        <div class="fg"><label>Last name *</label><input id="fl" oninput="updateMrz()" onkeypress="handleEnter(event,'fp')"></div>
+        <div class="fg"><label>Passport number *</label><input id="fp" class="mono" oninput="updateMrz()" onkeypress="handleEnter(event,'fd')"></div>
+        <div class="fg"><label>Date of birth</label><input type="date" id="fd" oninput="updateMrz()" onkeypress="handleEnter(event,'fb')"></div>
+        <div class="fg"><label>Place of birth</label>
+          <select id="fb" onchange="autoFillIssuePlace()" onkeypress="handleEnter(event,'fi')">
+            <option value="">Select…</option>
+            <option>CASABLANCA</option><option>NADOR</option><option>RABAT</option>
+            <option>TETOUAN</option><option>AGADIR</option><option>TANGER</option>
+            <option>FES</option><option>MARRAKECH</option><option>MEKNES</option><option>OUJDA</option>
+          </select>
+        </div>
+        <div class="fg"><label>Issue place</label>
+          <select id="fi" onkeypress="handleEnter(event,'fa1')">
+            <option value="">Select…</option>
+            <option>CASABLANCA</option><option>NADOR</option><option>RABAT</option>
+            <option>TETOUAN</option><option>AGADIR</option><option>TANGER</option>
+            <option>FES</option><option>MARRAKECH</option><option>MEKNES</option><option>OUJDA</option>
+          </select>
+        </div>
+        <div class="fg full"><label>Home address</label><input id="fa1" onkeypress="handleEnter(event,'fc')"></div>
+        <div class="fg"><label>City</label><input id="fc" onkeypress="handleEnter(event,'fpc')"></div>
+        <div class="fg"><label>Postal code</label><input id="fpc" onkeypress="handleEnter(event,'ff')"></div>
+      </div>
+    </div>
+    <div class="mrz-label">Reference strip</div>
+    <div class="mrz" id="mrz-preview">P&lt;MAR&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;MAR&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</div>
+    <div class="page-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-seal" id="save-btn" onclick="save()">Save applicant</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = window.location.origin;
+  let apps = [], groups = [], editIdx = -1, filter = 'all';
+  let currentPhotoBase64 = null;
+  let isModalOpen = false;
+
+  function pad(str, len){
+    str = (str || '').toUpperCase().replace(/[^A-Z0-9]/g, '<');
+    return (str + '<'.repeat(len)).slice(0, len);
+  }
+  function updateMrz(){
+    const last = document.getElementById('fl').value || '';
+    const first = document.getElementById('ff').value || '';
+    const pass = document.getElementById('fp').value || '';
+    const line1 = pad('P<MAR' + last.toUpperCase().replace(/\s/g,'') + '<<' + first.toUpperCase().replace(/\s/g,''), 44);
+    const line2 = pad(pass, 9) + '<' + pad('MAR', 3) + pad('', 27);
+    document.getElementById('mrz-preview').textContent = line1 + '\n' + line2;
+  }
+
+  function autoFillIssuePlace(){
+    const p = document.getElementById('fb').value;
+    const i = document.getElementById('fi');
+    if (p && !i.value) i.value = p;
+  }
+
+  function handleEnter(event, nextFieldId){
+    if (event.key === 'Enter'){
+      event.preventDefault();
+      const next = document.getElementById(nextFieldId);
+      if (next) next.focus(); else save();
+    }
+  }
+
+  async function loadData(){
+    try{
+      const r = await fetch(API + '/api/applicants');
+      const d = await r.json();
+      apps = d.applicants || [];
+      groups = d.groups || [];
+      updateUI();
+    }catch(e){ console.error('Load failed', e); }
+  }
+
+  function updateUI(){
+    document.getElementById('total-applicants').textContent = apps.length;
+    document.getElementById('total-groups').textContent = groups.length;
+    const withPhoto = apps.filter(a => a.photo).length;
+    document.getElementById('with-photos').childNodes[0].textContent = withPhoto;
+    document.getElementById('photo-pct').textContent = apps.length ? Math.round(withPhoto/apps.length*100) + '%' : '';
+    document.getElementById('manifest-meta').textContent = apps.length + ' record' + (apps.length===1?'':'s') + ' on file';
+
+    if (!isModalOpen){
+      const fg = document.getElementById('fg');
+      const prev = fg.value;
+      fg.innerHTML = '<option value="">No group</option>';
+      groups.forEach(g => fg.innerHTML += `<option value="${g}">${g}</option>`);
+      if (prev) fg.value = prev;
+    }
+
+    const gf = document.getElementById('groups-filter');
+    gf.innerHTML = '';
+    const all = document.createElement('div');
+    all.className = 'chip' + (filter === 'all' ? ' active' : '');
+    all.textContent = `All (${apps.length})`;
+    all.onclick = () => { filter = 'all'; updateUI(); };
+    gf.appendChild(all);
+
+    groups.forEach(g => {
+      const cnt = apps.filter(a => a.group === g).length;
+      const chip = document.createElement('div');
+      chip.className = 'chip' + (filter === g ? ' active' : '');
+      chip.innerHTML = `${g} (${cnt}) <span class="x" onclick="event.stopPropagation(); deleteGroup('${g}')">×</span>`;
+      chip.onclick = () => { filter = g; updateUI(); };
+      gf.appendChild(chip);
+    });
+
+    filterApplicants();
+  }
+
+  function filterApplicants(){
+    const q = document.getElementById('search').value.toLowerCase();
+    let filtered = apps.filter(a => {
+      if (filter !== 'all' && a.group !== filter) return false;
+      if (!q) return true;
+      return (a.FirstName||'').toLowerCase().includes(q) ||
+             (a.LastName||'').toLowerCase().includes(q) ||
+             (a.PassportNo||'').toLowerCase().includes(q);
+    });
+
+    const tb = document.getElementById('tbody');
+    if (!filtered.length){
+      tb.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="mark">∅</div><p>No matching records</p></div></td></tr>`;
+      return;
+    }
+
+    tb.innerHTML = filtered.map(a => {
+      const idx = apps.indexOf(a);
+      return `<tr>
+        <td class="row-no">${String(idx+1).padStart(3,'0')}</td>
+        <td>${a.photo ? `<img class="photo-thumb" src="${a.photo}">` : '<div class="no-photo">—</div>'}</td>
+        <td class="name-cell"><strong>${a.FirstName||''} ${a.LastName||''}</strong>${(a.City||a.PostalCode) ? `<small>${[a.City,a.PostalCode].filter(Boolean).join(', ')}</small>` : ''}</td>
+        <td class="mono">${a.PassportNo||''}</td>
+        <td>${a.DateOfBirth || '<span class="dash">—</span>'}</td>
+        <td>${a.PlaceOfBirth || '<span class="dash">—</span>'}</td>
+        <td>${a.group ? `<span class="group-tag">${a.group}</span>` : '<span class="dash">—</span>'}</td>
+        <td><div class="row-actions">
+          <button class="icon-btn" onclick="edit(${idx})">Edit</button>
+          <button class="icon-btn del" onclick="del(${idx})">Delete</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function resetPhotoSlot(url){
+    const slot = document.getElementById('photo-slot');
+    slot.innerHTML = url ? `<img src="${url}">` : '<span class="ph">＋</span>';
+  }
+
+  function showAddModal(){
+    isModalOpen = true;
+    editIdx = -1;
+    currentPhotoBase64 = null;
+    document.getElementById('modal-title').textContent = 'Add applicant';
+    document.getElementById('fg').value = filter === 'all' ? '' : filter;
+    ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph'].forEach(id => document.getElementById(id).value = '');
+    resetPhotoSlot(null);
+    document.getElementById('upload-status').textContent = '';
+    document.getElementById('save-btn').disabled = false;
+    updateMrz();
+    document.getElementById('modal').classList.add('active');
+    setTimeout(() => document.getElementById('ff').focus(), 100);
+  }
+
+  function edit(i){
+    isModalOpen = true;
+    editIdx = i;
+    currentPhotoBase64 = apps[i].photo;
+    const a = apps[i];
+    document.getElementById('modal-title').textContent = 'Edit applicant';
+    document.getElementById('fg').value = a.group || '';
+    document.getElementById('ff').value = a.FirstName || '';
+    document.getElementById('fl').value = a.LastName || '';
+    document.getElementById('fp').value = a.PassportNo || '';
+    document.getElementById('fd').value = a.DateOfBirth || '';
+    document.getElementById('fb').value = a.PlaceOfBirth || '';
+    document.getElementById('fi').value = a.IssuePlace || '';
+    document.getElementById('fa1').value = a.HomeAddressLine1 || '';
+    document.getElementById('fc').value = a.City || '';
+    document.getElementById('fpc').value = a.PostalCode || '';
+    document.getElementById('fph').value = '';
+    resetPhotoSlot(a.photo);
+    document.getElementById('upload-status').textContent = '';
+    document.getElementById('save-btn').disabled = false;
+    updateMrz();
+    document.getElementById('modal').classList.add('active');
+  }
+
+  function closeModal(){
+    isModalOpen = false;
+    document.getElementById('modal').classList.remove('active');
+  }
+
+  document.getElementById('fph').onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const statusEl = document.getElementById('upload-status');
+    statusEl.textContent = 'Processing photo…';
+    try{
+      const compressed = await compressImage(file, 600, 600, 0.92);
+      currentPhotoBase64 = compressed;
+      const sizeKB = Math.round((compressed.length * 3/4)/1024);
+      statusEl.textContent = `Optimized to ~${sizeKB}KB`;
+      resetPhotoSlot(compressed);
+    }catch(err){
+      statusEl.textContent = 'Photo processing failed — try again';
+      currentPhotoBase64 = null;
+    }
+  };
+
+  function compressImage(file, maxWidth, maxHeight, quality){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width, height = img.height;
+          if (width > height){ if (width > maxWidth){ height *= maxWidth/width; width = maxWidth; } }
+          else { if (height > maxHeight){ width *= maxHeight/height; height = maxHeight; } }
+          canvas.width = width; canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function save(){
+    const saveBtn = document.getElementById('save-btn');
+    const passportVal = document.getElementById('fp').value.trim();
+    const firstVal = document.getElementById('ff').value.trim();
+    const lastVal = document.getElementById('fl').value.trim();
+
+    if (!firstVal || !lastVal || !passportVal){
+      stamp('Missing required fields', 'error');
+      return;
+    }
+    if (editIdx < 0){
+      const duplicate = apps.find(a => a.PassportNo === passportVal);
+      if (duplicate){ stamp('Passport already on file', 'error'); return; }
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+
+    const a = {
+      group: document.getElementById('fg').value,
+      FirstName: firstVal,
+      LastName: lastVal,
+      PassportNo: passportVal,
+      DateOfBirth: document.getElementById('fd').value,
+      PlaceOfBirth: document.getElementById('fb').value,
+      IssuePlace: document.getElementById('fi').value,
+      HomeAddressLine1: document.getElementById('fa1').value.trim(),
+      City: document.getElementById('fc').value.trim(),
+      PostalCode: document.getElementById('fpc').value.trim(),
+      photo: currentPhotoBase64,
+      _updatedAt: Date.now()
+    };
+
+    if (editIdx >= 0) apps[editIdx] = a; else apps.push(a);
+    if (a.group && !groups.includes(a.group)) groups.push(a.group);
+
+    try{
+      await sync();
+      closeModal();
+      stamp('Saved');
+    }catch(e){
+      stamp('Save failed', 'error');
+    }finally{
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save applicant';
+    }
+  }
+
+  async function del(i){
+    if (!confirm('Delete this applicant?')) return;
+    const passportNo = apps[i].PassportNo;
+    if (!passportNo){ stamp('No passport number on record', 'error'); return; }
+    try{
+      const r = await fetch(API + '/api/applicants/' + encodeURIComponent(passportNo), { method: 'DELETE' });
+      if (!r.ok) throw new Error('Server error');
+      const d = await r.json();
+      apps = d.data.applicants; groups = d.data.groups;
+      updateUI();
+      stamp('Deleted');
+    }catch(e){ stamp('Delete failed', 'error'); }
+  }
+
+  async function deleteAll(){
+    if (!confirm('Delete ALL applicants? This cannot be undone.')) return;
+    try{
+      await fetch(API + '/api/applicants', { method: 'DELETE' });
+      apps = []; groups = []; filter = 'all';
+      updateUI();
+      stamp('Manifest cleared');
+    }catch(e){ stamp('Delete failed', 'error'); }
+  }
+
+  async function deleteGroup(groupName){
+    const count = apps.filter(a => a.group === groupName).length;
+    if (!confirm(`Delete group "${groupName}" and ${count} applicant(s)?`)) return;
+    try{
+      const r = await fetch(API + '/api/applicants/group/' + encodeURIComponent(groupName), { method: 'DELETE' });
+      if (!r.ok) throw new Error('Server error');
+      const d = await r.json();
+      apps = d.data.applicants; groups = d.data.groups;
+      if (filter === groupName) filter = 'all';
+      updateUI();
+      stamp('Group deleted');
+    }catch(e){ stamp('Delete failed', 'error'); }
+  }
+
+  function showAddGroupModal(){
+    const name = prompt('New group name:');
+    if (!name || !name.trim()) return;
+    const g = name.trim();
+    if (groups.includes(g)){ stamp('Group already exists', 'error'); return; }
+    groups.push(g);
+    sync();
+    filter = g;
+    stamp('Group created');
+  }
+
+  async function sync(){
+    const r = await fetch(API + '/api/applicants/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ applicants: apps, groups })
+    });
+    if (!r.ok) throw new Error('Sync failed');
+    const d = await r.json();
+    apps = d.data.applicants; groups = d.data.groups;
+    updateUI();
+  }
+
+  async function syncNow(){
+    try{
+      await loadData();
+      await fetch(API + '/api/force-sync', { method: 'POST' }).catch(() => {});
+      stamp('Synced');
+    }catch(e){ stamp('Sync failed', 'error'); }
+  }
+
+  function exportData(){
+    const s = JSON.stringify({ applicants: apps, groups }, null, 2);
+    const b = new Blob([s], { type: 'application/json' });
+    const u = URL.createObjectURL(b);
+    const l = document.createElement('a');
+    l.href = u; l.download = `manifest-${new Date().toISOString().split('T')[0]}.json`;
+    l.click();
+    URL.revokeObjectURL(u);
+    stamp('Exported');
+  }
+
+  function importData(){
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'application/json';
+    inp.onchange = async e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = async ev => {
+        try{
+          const d = JSON.parse(ev.target.result);
+          if (!d.applicants || !Array.isArray(d.applicants)) throw new Error('Invalid format');
+          const now = Date.now();
+          const incoming = d.applicants.map(a => ({ ...a, _updatedAt: a._updatedAt || now }));
+          const existingPassports = new Set(apps.map(a => a.PassportNo));
+          const newApps = incoming.filter(a => !existingPassports.has(a.PassportNo));
+          apps.push(...newApps);
+          if (d.groups && Array.isArray(d.groups)){
+            d.groups.forEach(g => { if (!groups.includes(g)) groups.push(g); });
+          }
+          await sync();
+          stamp(`Imported ${newApps.length}`);
+        }catch(e){ stamp('Import failed', 'error'); }
+      };
+      r.readAsText(f);
+    };
+    inp.click();
+  }
+
+  function stamp(msg, type = 'success'){
+    const t = document.createElement('div');
+    t.className = 'stamp' + (type === 'error' ? ' error' : '');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2800);
+  }
+
+  document.addEventListener('DOMContentLoaded', loadData);
+  setInterval(() => { if (!isModalOpen) loadData(); }, 10000);
+</script>
+</body>
+</html>
