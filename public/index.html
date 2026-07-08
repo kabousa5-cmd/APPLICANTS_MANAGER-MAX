@@ -260,6 +260,8 @@
     border-radius:var(--radius);
   }
   .fg input:focus, .fg select:focus{outline:none;border-color:var(--navy);background:var(--white);}
+  .fg input[readonly]{background:var(--paper-deep);color:var(--ink-soft);cursor:not-allowed;border-style:dashed;}
+  .lock-note{font-size:11px;color:var(--ink-faint);margin-top:6px;}
 
   .mrz{
     margin:0 28px 24px;padding:16px 18px;background:var(--navy-deep);
@@ -392,7 +394,7 @@
       <div class="fields">
         <div class="fg"><label>First name *</label><input id="ff" oninput="updateMrz()" onkeypress="handleEnter(event,'fl')"></div>
         <div class="fg"><label>Last name *</label><input id="fl" oninput="updateMrz()" onkeypress="handleEnter(event,'fp')"></div>
-        <div class="fg"><label>Passport number *</label><input id="fp" class="mono" oninput="updateMrz()" onkeypress="handleEnter(event,'fd')"></div>
+        <div class="fg"><label>Passport number *</label><input id="fp" class="mono" oninput="updateMrz()" onkeypress="handleEnter(event,'fd')"><div class="lock-note" id="fp-lock-note" style="display:none;">🔒 Locked while editing — delete and re-add to change the passport number</div></div>
         <div class="fg"><label>Date of birth</label><input type="date" id="fd" oninput="updateMrz()" onkeypress="handleEnter(event,'fb')"></div>
         <div class="fg"><label>Place of birth</label>
           <select id="fb" onchange="autoFillIssuePlace()" onkeypress="handleEnter(event,'fi')">
@@ -552,6 +554,8 @@
     document.getElementById('modal-title').textContent = 'Add applicant';
     document.getElementById('fg').value = filter === 'all' ? '' : filter;
     ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('fp').removeAttribute('readonly');
+    document.getElementById('fp-lock-note').style.display = 'none';
     resetPhotoSlot(null);
     document.getElementById('upload-status').textContent = '';
     document.getElementById('save-btn').disabled = false;
@@ -571,6 +575,8 @@
     document.getElementById('ff').value = a.FirstName || '';
     document.getElementById('fl').value = a.LastName || '';
     document.getElementById('fp').value = a.PassportNo || '';
+    document.getElementById('fp').setAttribute('readonly', 'true');
+    document.getElementById('fp-lock-note').style.display = 'block';
     document.getElementById('fd').value = a.DateOfBirth || '';
     document.getElementById('fb').value = a.PlaceOfBirth || '';
     document.getElementById('fi').value = a.IssuePlace || '';
@@ -650,11 +656,13 @@
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving…';
 
+    // FIX: passport number is locked during edit, but force it server-side too
+    // (defense in depth) — an edit must never change the record's identity.
     const record = {
       group: document.getElementById('fg').value,
       FirstName: firstVal,
       LastName: lastVal,
-      PassportNo: passportVal,
+      PassportNo: editIdx >= 0 ? originalPassportNo : passportVal,
       DateOfBirth: document.getElementById('fd').value,
       PlaceOfBirth: document.getElementById('fb').value,
       IssuePlace: document.getElementById('fi').value,
@@ -668,21 +676,26 @@
     try{
       if (editIdx >= 0){
         // FIX: atomic update targeted at the ORIGINAL passport number.
-        // This edits the one record in place — it cannot create a duplicate,
-        // even if the passport number itself was changed, and even if another
-        // client's background sync races with this request.
+        // This edits the one record in place — it cannot create a duplicate.
         const r = await fetch(API + '/api/applicants/' + encodeURIComponent(originalPassportNo), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(record)
         });
-        if (!r.ok){
+        if (r.status === 404){
+          // FIX: fallback for a server that hasn't been redeployed with the
+          // new PUT route yet — still edits in place via the full-list sync,
+          // since PassportNo is unchanged this cannot create a duplicate.
+          apps[editIdx] = record;
+          await sync();
+        } else if (!r.ok){
           const err = await r.json().catch(() => ({}));
           throw new Error(err.error || 'Update failed');
+        } else {
+          const d = await r.json();
+          apps = d.data.applicants;
+          groups = d.data.groups;
         }
-        const d = await r.json();
-        apps = d.data.applicants;
-        groups = d.data.groups;
       } else {
         apps.push(record);
         if (record.group && !groups.includes(record.group)) groups.push(record.group);
