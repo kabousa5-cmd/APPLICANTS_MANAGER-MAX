@@ -422,7 +422,27 @@
         </div>
         <div class="fg full"><label>Home address</label><input id="fa1" onkeypress="handleEnter(event,'fc')"></div>
         <div class="fg"><label>City</label><input id="fc" onkeypress="handleEnter(event,'fpc')"></div>
-        <div class="fg"><label>Postal code</label><input id="fpc" onkeypress="handleEnter(event,'ff')"></div>
+        <div class="fg"><label>Postal code</label><input id="fpc" onkeypress="handleEnter(event,'fgen')"></div>
+        <div class="fg"><label>Gender</label>
+          <select id="fgen" onkeypress="handleEnter(event,'fms')">
+            <option value="">Select…</option>
+            <option>Male</option><option>Female</option>
+          </select>
+        </div>
+        <div class="fg"><label>Marital status</label>
+          <select id="fms" onkeypress="handleEnter(event,'fpj')">
+            <option value="">Select…</option>
+            <option>Single</option><option>Married</option><option>Divorced</option><option>Widowed</option>
+          </select>
+        </div>
+        <div class="fg"><label>Purpose of journey</label>
+          <select id="fpj" onkeypress="handleEnter(event,'frel')">
+            <option value="">Select…</option>
+            <option>Tourism</option><option>Business</option><option>Family Visit</option>
+            <option>Medical</option><option>Study</option><option>Transit</option><option>Other</option>
+          </select>
+        </div>
+        <div class="fg"><label>Relationship with primary applicant</label><input id="frel" placeholder="e.g. Self, Spouse, Child" onkeypress="handleEnter(event,'ff')"></div>
       </div>
     </div>
     <div class="mrz-label">Reference strip</div>
@@ -561,7 +581,7 @@
     currentPhotoBase64 = null;
     document.getElementById('modal-title').textContent = 'Add applicant';
     document.getElementById('fg').value = filter === 'all' ? '' : filter;
-    ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph'].forEach(id => document.getElementById(id).value = '');
+    ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph','fgen','fms','fpj','frel'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('fp').removeAttribute('readonly');
     document.getElementById('fp-lock-note').style.display = 'none';
     resetPhotoSlot(null);
@@ -591,6 +611,10 @@
     document.getElementById('fa1').value = a.HomeAddressLine1 || '';
     document.getElementById('fc').value = a.City || '';
     document.getElementById('fpc').value = a.PostalCode || '';
+    document.getElementById('fgen').value = a.Gender || '';
+    document.getElementById('fms').value = a.MaritalStatus || '';
+    document.getElementById('fpj').value = a.PurposeOfJourney || '';
+    document.getElementById('frel').value = a.RelationshipWithPrimaryApplicant || '';
     document.getElementById('fph').value = '';
     resetPhotoSlot(a.photo);
     document.getElementById('upload-status').textContent = '';
@@ -677,6 +701,10 @@
       HomeAddressLine1: document.getElementById('fa1').value.trim(),
       City: document.getElementById('fc').value.trim(),
       PostalCode: document.getElementById('fpc').value.trim(),
+      Gender: document.getElementById('fgen').value,
+      MaritalStatus: document.getElementById('fms').value,
+      PurposeOfJourney: document.getElementById('fpj').value,
+      RelationshipWithPrimaryApplicant: document.getElementById('frel').value.trim(),
       photo: currentPhotoBase64,
       _updatedAt: Date.now()
     };
