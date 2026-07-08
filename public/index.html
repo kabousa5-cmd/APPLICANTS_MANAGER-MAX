@@ -442,7 +442,12 @@
             <option>Medical</option><option>Study</option><option>Transit</option><option>Other</option>
           </select>
         </div>
-        <div class="fg"><label>Relationship with primary applicant</label><input id="frel" placeholder="e.g. Self, Spouse, Child" onkeypress="handleEnter(event,'ff')"></div>
+        <div class="fg"><label>Relationship with primary applicant</label>
+          <select id="frel" onkeypress="handleEnter(event,'ff')">
+            <option value="">Select…</option>
+            <option>Father</option><option>Daughter</option>
+          </select>
+        </div>
       </div>
     </div>
     <div class="mrz-label">Reference strip</div>
