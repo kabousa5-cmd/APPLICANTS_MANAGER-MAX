@@ -225,12 +225,26 @@
     font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--brass-light);
     color:var(--brass);border-radius:20px;background:#FBF6EC;white-space:nowrap;
   }
+  .tree-arrow{display:inline-block;width:16px;color:var(--brass-light);}
+  .destination-header-row{cursor:pointer;}
+  .destination-header-row td{
+    background:var(--navy);color:var(--white);font-family:'Fraunces',serif;font-weight:700;
+    font-size:13.5px;letter-spacing:0.6px;text-transform:uppercase;padding:11px 16px;
+    border-top:3px solid var(--brass);
+  }
+  .destination-header-row:hover td{background:#1a2350;}
+  .city-header-row{cursor:pointer;}
+  .city-header-row td{
+    background:#232c55;color:rgba(255,255,255,0.9);font-family:'Fraunces',serif;font-weight:600;
+    font-size:12px;letter-spacing:0.4px;padding:8px 16px 8px 32px;border-top:1px solid rgba(255,255,255,0.1);
+  }
+  .city-header-row:hover td{background:#2a3563;}
   .group-header-row{cursor:pointer;}
   .group-header-row td{
-    background:var(--navy);color:var(--white);font-family:'Fraunces',serif;font-weight:600;
-    font-size:12.5px;letter-spacing:0.5px;padding:9px 16px;border-top:2px solid var(--brass);
+    background:#3a2a4a;color:var(--white);font-family:'Fraunces',serif;font-weight:600;
+    font-size:12px;letter-spacing:0.4px;padding:8px 16px 8px 48px;border-top:1px solid rgba(255,255,255,0.08);
   }
-  .group-header-row:hover td{background:#1a2350;}
+  .group-header-row:hover td{background:#46335a;}
   .group-header-arrow{display:inline-block;width:16px;color:var(--brass-light);}
   .dash{color:var(--ink-faint);}
   .row-actions{display:flex;gap:6px;}
@@ -508,6 +522,11 @@
   // clicking a family's header row reveals its members; clicking again
   // hides them.
   let expandedGroups = new Set();
+  // Destinations (Spain/Portugal) start open by default — collapsing one
+  // hides its cities. Cities start closed — expanding one reveals its
+  // families/individuals. Each node opens and closes independently.
+  let collapsedDestinations = new Set();
+  let expandedCities = new Set();
 
   function pad(str, len){
     str = (str || '').toUpperCase().replace(/[^A-Z0-9]/g, '<');
@@ -605,58 +624,16 @@
     filterApplicants();
   }
 
-  function filterApplicants(){
-    const q = document.getElementById('search').value.toLowerCase();
-    let filtered = apps.filter(a => {
-      if (filter !== 'all' && a.group !== filter) return false;
-      if (!q) return true;
-      return (a.FirstName||'').toLowerCase().includes(q) ||
-             (a.LastName||'').toLowerCase().includes(q) ||
-             (a.PassportNo||'').toLowerCase().includes(q);
-    });
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function escapeJs(s){
+    return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  }
 
-    // Keep every family together on the manifest instead of scattered in
-    // whatever order they happened to be added: sort by group/family name
-    // first (ungrouped applicants sink to the bottom), then within each
-    // family keep the original add order (sort is stable) so members stay
-    // in a sensible sequence.
-    filtered = filtered.slice().sort((a, b) => {
-      const ga = a.group || '';
-      const gb = b.group || '';
-      if (ga === gb) return 0;
-      if (!ga) return 1;
-      if (!gb) return -1;
-      return ga.localeCompare(gb);
-    });
-
-    const tb = document.getElementById('tbody');
-    if (!filtered.length){
-      tb.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="mark">∅</div><p>No matching records</p></div></td></tr>`;
-      return;
-    }
-
-    let lastGroup = undefined;
-    let html = '';
-    filtered.forEach(a => {
-      const idx = apps.indexOf(a);
-      const g = a.group || '';
-
-      if (g && g !== lastGroup){
-        const memberCount = apps.filter(x => x.group === g).length;
-        // While browsing "All", a specific family only shows once you click
-        // its header to expand it — clicking again collapses it back.
-        // When a group chip is already filtering the list, there's nothing
-        // else to hide, so always show the members.
-        const isExpanded = filter !== 'all' || expandedGroups.has(g);
-        const arrow = isExpanded ? '▾' : '▸';
-        html += `<tr class="group-header-row" onclick="toggleGroup('${g.replace(/'/g, "\\'")}')"><td colspan="8"><span class="group-header-arrow">${arrow}</span>${g} — ${memberCount} member${memberCount===1?'':'s'}</td></tr>`;
-      }
-      lastGroup = g;
-
-      const isVisible = !g || filter !== 'all' || expandedGroups.has(g);
-      if (!isVisible) return;
-
-      html += `<tr>
+  function renderApplicantRow(a){
+    const idx = apps.indexOf(a);
+    return `<tr>
         <td class="row-no">${String(idx+1).padStart(3,'0')}</td>
         <td>${a.photo ? `<img class="photo-thumb" src="${a.photo}">` : '<div class="no-photo">—</div>'}</td>
         <td class="name-cell holdable" data-idx="${idx}" onmousedown="holdStart(event,${idx})" onmouseup="holdEnd()" onmouseleave="holdEnd()" ontouchstart="holdStart(event,${idx})" ontouchend="holdEnd()" ontouchcancel="holdEnd()"><div class="hold-fill"></div><strong>${a.FirstName||''} ${a.LastName||''}</strong>${(a.City||a.PostalCode) ? `<small>${[a.City,a.PostalCode].filter(Boolean).join(', ')}</small>` : ''}</td>
@@ -669,8 +646,99 @@
           <button class="icon-btn" onclick="edit(${idx})">Edit</button>
         </div></td>
       </tr>`;
+  }
+
+  function groupByKey(list, keyFn){
+    const map = new Map();
+    list.forEach(item => {
+      const k = keyFn(item);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(item);
     });
-    tb.innerHTML = html;
+    return map;
+  }
+
+  // FEATURE: Destination → City → Family tree — each level opens and
+  // closes independently, like folders. Destinations start open, cities
+  // and families start closed so the list stays compact until you drill
+  // into the one you need.
+  function renderDestinationTree(list){
+    const byDest = groupByKey(list, a => a.Destination || 'Unspecified destination');
+    const destKeys = Array.from(byDest.keys()).sort((a, b) => a.localeCompare(b));
+    let html = '';
+
+    destKeys.forEach(dest => {
+      const destApps = byDest.get(dest);
+      const destCollapsed = collapsedDestinations.has(dest);
+      const dArrow = destCollapsed ? '▸' : '▾';
+      html += `<tr class="destination-header-row" onclick="toggleDestination('${escapeJs(dest)}')"><td colspan="8"><span class="tree-arrow">${dArrow}</span>${escapeHtml(dest)} — ${destApps.length} applicant${destApps.length===1?'':'s'}</td></tr>`;
+      if (destCollapsed) return;
+
+      const byCity = groupByKey(destApps, a => a.City || 'Unspecified city');
+      const cityKeys = Array.from(byCity.keys()).sort((a, b) => a.localeCompare(b));
+
+      cityKeys.forEach(city => {
+        const cityApps = byCity.get(city);
+        const cityKey = dest + '::' + city;
+        const cityExpanded = expandedCities.has(cityKey);
+        const cArrow = cityExpanded ? '▾' : '▸';
+        html += `<tr class="city-header-row" onclick="toggleCity('${escapeJs(cityKey)}')"><td colspan="8"><span class="tree-arrow">${cArrow}</span>${escapeHtml(city)} — ${cityApps.length} applicant${cityApps.length===1?'':'s'}</td></tr>`;
+        if (!cityExpanded) return;
+
+        const byFamily = groupByKey(cityApps, a => a.group || '');
+        const familyKeys = Array.from(byFamily.keys()).filter(k => k).sort((a, b) => a.localeCompare(b));
+
+        familyKeys.forEach(fam => {
+          const members = byFamily.get(fam);
+          const famExpanded = expandedGroups.has(fam);
+          const fArrow = famExpanded ? '▾' : '▸';
+          html += `<tr class="group-header-row" onclick="toggleGroup('${escapeJs(fam)}')"><td colspan="8"><span class="group-header-arrow">${fArrow}</span>${escapeHtml(fam)} — ${members.length} member${members.length===1?'':'s'}</td></tr>`;
+          if (famExpanded) members.forEach(a => { html += renderApplicantRow(a); });
+        });
+
+        (byFamily.get('') || []).forEach(a => { html += renderApplicantRow(a); });
+      });
+    });
+
+    return html;
+  }
+
+  function filterApplicants(){
+    const q = document.getElementById('search').value.toLowerCase();
+    let filtered = apps.filter(a => {
+      if (filter !== 'all' && a.group !== filter) return false;
+      if (!q) return true;
+      return (a.FirstName||'').toLowerCase().includes(q) ||
+             (a.LastName||'').toLowerCase().includes(q) ||
+             (a.PassportNo||'').toLowerCase().includes(q);
+    });
+
+    const tb = document.getElementById('tbody');
+    if (!filtered.length){
+      tb.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="mark">∅</div><p>No matching records</p></div></td></tr>`;
+      return;
+    }
+
+    if (filter !== 'all'){
+      // A group chip already scopes the list to one family — no need for
+      // the destination/city tree on top, just show its members directly.
+      tb.innerHTML = filtered.map(a => renderApplicantRow(a)).join('');
+      return;
+    }
+
+    tb.innerHTML = renderDestinationTree(filtered);
+  }
+
+  function toggleDestination(dest){
+    if (collapsedDestinations.has(dest)) collapsedDestinations.delete(dest);
+    else collapsedDestinations.add(dest);
+    filterApplicants();
+  }
+
+  function toggleCity(cityKey){
+    if (expandedCities.has(cityKey)) expandedCities.delete(cityKey);
+    else expandedCities.add(cityKey);
+    filterApplicants();
   }
 
   function toggleGroup(g){
