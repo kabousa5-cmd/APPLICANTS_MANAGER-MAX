@@ -484,6 +484,9 @@
       <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
       <button class="btn btn-seal" id="save-btn" onclick="save()">Save applicant</button>
     </div>
+    <div class="page-footer" id="save-family-row" style="display:none; margin-top:8px;">
+      <button class="btn btn-seal" id="save-add-family-btn" style="width:100%;" onclick="save(true)">+ Save &amp; add family applicant</button>
+    </div>
   </div>
 </div>
 
@@ -655,6 +658,7 @@
     document.getElementById('fg').value = filter === 'all' ? '' : filter;
     document.getElementById('fat').value = 'Individual';
     document.getElementById('fdest').value = 'Spain';
+    toggleFamilyButton();
     ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph','fgen','fms','fpj','frel','fpid','fped'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('fp').removeAttribute('readonly');
     document.getElementById('fp-lock-note').style.display = 'none';
@@ -676,6 +680,7 @@
     document.getElementById('fg').value = a.group || '';
     document.getElementById('fat').value = a.ApplicationType || 'Individual';
     document.getElementById('fdest').value = a.Destination || 'Spain';
+    toggleFamilyButton();
     document.getElementById('ff').value = a.FirstName || '';
     document.getElementById('fl').value = a.LastName || '';
     document.getElementById('fp').value = a.PassportNo || '';
@@ -748,8 +753,9 @@
     });
   }
 
-  async function save(){
+  async function save(addAnother){
     const saveBtn = document.getElementById('save-btn');
+    const familyBtn = document.getElementById('save-add-family-btn');
     const passportVal = document.getElementById('fp').value.trim();
     const firstVal = document.getElementById('ff').value.trim();
     const lastVal = document.getElementById('fl').value.trim();
@@ -765,6 +771,7 @@
 
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving…';
+    if (familyBtn){ familyBtn.disabled = true; }
 
     // FIX: passport number is locked during edit, but force it server-side too
     // (defense in depth) — an edit must never change the record's identity.
@@ -824,20 +831,19 @@
       closeModal();
       stamp('Saved');
 
-      if (wasNewFamilyMember){
-        const familyName = record.group || 'this family';
-        if (confirm(`Add another family member to "${familyName}"?`)){
-          showAddModal();
-          document.getElementById('fg').value = record.group;
-          document.getElementById('fat').value = 'Family';
-          document.getElementById('fdest').value = record.Destination;
-        }
+      if (wasNewFamilyMember && addAnother){
+        showAddModal();
+        document.getElementById('fg').value = record.group;
+        document.getElementById('fat').value = 'Family';
+        document.getElementById('fdest').value = record.Destination;
+        toggleFamilyButton();
       }
     }catch(e){
       stamp(e.message || 'Save failed', 'error');
     }finally{
       saveBtn.disabled = false;
       saveBtn.textContent = 'Save applicant';
+      if (familyBtn){ familyBtn.disabled = false; }
     }
   }
 
@@ -966,11 +972,15 @@
   function ensureFamilyGroup(){
     const fatSel = document.getElementById('fat');
     const fgSel = document.getElementById('fg');
-    if (fatSel.value !== 'Family' || fgSel.value) return;
+    if (fatSel.value !== 'Family' || fgSel.value){
+      toggleFamilyButton();
+      return;
+    }
 
     const name = prompt('Family name (used to file all family members together):');
     if (!name || !name.trim()){
       fatSel.value = 'Individual';
+      toggleFamilyButton();
       return;
     }
     const g = name.trim();
@@ -985,6 +995,15 @@
       fgSel.appendChild(opt);
     }
     fgSel.value = g;
+    toggleFamilyButton();
+  }
+
+  // Shows/hides the "Save & add family applicant" row based on the
+  // currently selected Application type.
+  function toggleFamilyButton(){
+    const row = document.getElementById('save-family-row');
+    const isFamily = document.getElementById('fat').value === 'Family';
+    row.style.display = isFamily ? 'flex' : 'none';
   }
 
   async function sync(){
