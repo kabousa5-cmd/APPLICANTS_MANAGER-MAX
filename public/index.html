@@ -105,6 +105,14 @@
   .btn-danger{background:var(--white);color:var(--seal);border-color:#E3BFBB;}
   .btn-danger:hover{background:var(--seal-tint);}
   .btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .btn.holdable{position:relative;overflow:hidden;user-select:none;-webkit-user-select:none;}
+  .btn.holdable .hold-fill{
+    position:absolute;left:0;top:0;bottom:0;width:0%;
+    background:var(--seal-tint);z-index:0;pointer-events:none;
+    transition:width linear;
+  }
+  .btn.holdable .btn-label{position:relative;z-index:1;}
+  .btn.holdable.holding{color:var(--seal-dark);border-color:var(--seal);}
 
   /* ===== Stat tickets ===== */
   .tickets{
@@ -161,8 +169,14 @@
   }
   .chip:hover{border-color:var(--navy);color:var(--navy);}
   .chip.active{background:var(--navy);border-color:var(--navy);color:var(--white);}
-  .chip .x{opacity:0.6;font-weight:700;}
-  .chip .x:hover{opacity:1;color:var(--seal);}
+  .chip{position:relative;overflow:hidden;}
+  .chip .chip-label{position:relative;z-index:1;}
+  .chip .hold-fill{
+    position:absolute;left:0;top:0;bottom:0;width:0%;
+    background:var(--seal-tint);z-index:0;pointer-events:none;
+    transition:width linear;
+  }
+  .chip.holding{border-color:var(--seal);color:var(--seal-dark);}
 
   /* ===== Manifest table ===== */
   .manifest{
@@ -354,7 +368,11 @@
     <button class="btn btn-outline" onclick="showAddGroupModal()">+ New group</button>
     <button class="btn btn-outline" onclick="importData()">Import JSON</button>
     <button class="btn btn-outline" onclick="exportData()">Export JSON</button>
-    <button class="btn btn-danger" onclick="deleteAll()">Delete all</button>
+    <button type="button" class="btn btn-danger holdable" title="Press and hold for 10 seconds to delete all"
+      onmousedown="holdDeleteAllStart(event)" onmouseup="holdEnd()" onmouseleave="holdEnd()"
+      ontouchstart="holdDeleteAllStart(event)" ontouchend="holdEnd()" ontouchcancel="holdEnd()">
+      <div class="hold-fill"></div><span class="btn-label">Delete all</span>
+    </button>
   </div>
 
   <div class="chips" id="groups-filter"></div>
@@ -534,8 +552,34 @@
       const cnt = apps.filter(a => a.group === g).length;
       const chip = document.createElement('div');
       chip.className = 'chip' + (filter === g ? ' active' : '');
-      chip.innerHTML = `${g} (${cnt}) <span class="x" onclick="event.stopPropagation(); deleteGroup('${g}')">×</span>`;
-      chip.onclick = () => { filter = g; updateUI(); };
+      chip.title = `Tap to filter — press and hold for 10 seconds to delete group "${g}"`;
+
+      const fill = document.createElement('div');
+      fill.className = 'hold-fill';
+      chip.appendChild(fill);
+
+      const label = document.createElement('span');
+      label.className = 'chip-label';
+      label.textContent = `${g} (${cnt})`;
+      chip.appendChild(label);
+
+      // A quick tap selects the group as the active filter. Holding the
+      // chip down for the full 10 seconds deletes the group instead —
+      // releasing early always cancels the deletion and falls back to
+      // the normal tap-to-filter behavior.
+      const selectFilter = () => { filter = g; updateUI(); };
+      const onPressStart = (e) => startHold(chip, () => deleteGroup(g, true));
+      const onPressEnd = (e) => {
+        const wasHolding = !!holdTimer;
+        holdEnd();
+        if (wasHolding) selectFilter();
+      };
+      chip.onmousedown = onPressStart;
+      chip.onmouseup = onPressEnd;
+      chip.onmouseleave = () => holdEnd();
+      chip.ontouchstart = onPressStart;
+      chip.ontouchend = onPressEnd;
+      chip.ontouchcancel = () => holdEnd();
       gf.appendChild(chip);
     });
 
@@ -776,25 +820,32 @@
     stamp('Photo downloaded');
   }
 
+  // Generic 10-second press-and-hold engine, used for every deletion
+  // action in the app (single applicant, delete all, delete group) so
+  // that nothing is ever removed by a single tap/click.
   const HOLD_MS = 10000;
-  let holdTimer = null, holdCell = null;
+  let holdTimer = null, holdCell = null, holdAction = null;
 
-  function holdStart(evt, i){
+  function startHold(el, action){
     if (holdTimer) return;
-    holdCell = evt.currentTarget;
+    holdCell = el;
+    holdAction = action;
     holdCell.classList.add('holding');
     const fill = holdCell.querySelector('.hold-fill');
-    fill.style.transition = 'none';
-    fill.style.width = '0%';
-    // force reflow so the transition below actually animates from 0
-    void fill.offsetWidth;
-    fill.style.transition = `width ${HOLD_MS}ms linear`;
-    fill.style.width = '100%';
+    if (fill){
+      fill.style.transition = 'none';
+      fill.style.width = '0%';
+      // force reflow so the transition below actually animates from 0
+      void fill.offsetWidth;
+      fill.style.transition = `width ${HOLD_MS}ms linear`;
+      fill.style.width = '100%';
+    }
 
     holdTimer = setTimeout(() => {
       holdTimer = null;
+      const act = holdAction;
       holdEnd();
-      del(i, true);
+      if (act) act();
     }, HOLD_MS);
   }
 
@@ -809,6 +860,15 @@
       }
       holdCell = null;
     }
+    holdAction = null;
+  }
+
+  function holdStart(evt, i){
+    startHold(evt.currentTarget, () => del(i, true));
+  }
+
+  function holdDeleteAllStart(evt){
+    startHold(evt.currentTarget, () => deleteAll(true));
   }
 
   async function del(i, skipConfirm){
@@ -825,8 +885,8 @@
     }catch(e){ stamp('Delete failed', 'error'); }
   }
 
-  async function deleteAll(){
-    if (!confirm('Delete ALL applicants? This cannot be undone.')) return;
+  async function deleteAll(skipConfirm){
+    if (!skipConfirm && !confirm('Delete ALL applicants? This cannot be undone.')) return;
     try{
       await fetch(API + '/api/applicants', { method: 'DELETE' });
       apps = []; groups = []; filter = 'all';
@@ -835,9 +895,9 @@
     }catch(e){ stamp('Delete failed', 'error'); }
   }
 
-  async function deleteGroup(groupName){
+  async function deleteGroup(groupName, skipConfirm){
     const count = apps.filter(a => a.group === groupName).length;
-    if (!confirm(`Delete group "${groupName}" and ${count} applicant(s)?`)) return;
+    if (!skipConfirm && !confirm(`Delete group "${groupName}" and ${count} applicant(s)?`)) return;
     try{
       const r = await fetch(API + '/api/applicants/group/' + encodeURIComponent(groupName), { method: 'DELETE' });
       if (!r.ok) throw new Error('Server error');
