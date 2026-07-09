@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root{
     --paper:#EEF1EC;
@@ -368,6 +369,7 @@
     <button class="btn btn-outline" onclick="showAddGroupModal()">+ New group</button>
     <button class="btn btn-outline" onclick="importData()">Import JSON</button>
     <button class="btn btn-outline" onclick="exportData()">Export JSON</button>
+    <button class="btn btn-outline" onclick="exportByFolder()">Export by folder (Spain / Portugal)</button>
   </div>
 
   <div class="chips" id="groups-filter"></div>
@@ -1032,6 +1034,67 @@
     l.click();
     URL.revokeObjectURL(u);
     stamp('Exported');
+  }
+
+  // Makes a string safe to use as a folder/file name (strips path separators
+  // and other characters that break filesystems), and falls back to a
+  // sensible default if the result would be empty.
+  function sanitizeFolderName(name, fallback){
+    const cleaned = (name || '').toString().trim().replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').slice(0, 80);
+    return cleaned || fallback || 'Unnamed';
+  }
+
+  // FEATURE: Export by folder — builds a ZIP with a top-level folder per
+  // destination (Spain / Portugal / any other value / Unspecified), so the
+  // Spanish and Portuguese entities are always kept apart. Inside each
+  // destination folder, every family gets its own subfolder (named after
+  // the family/group) containing a JSON file and photo for each member.
+  // Individual (non-family) applicants get their own personal subfolder too,
+  // so nothing is left out of the structure.
+  async function exportByFolder(){
+    if (typeof JSZip === 'undefined'){ stamp('ZIP library failed to load', 'error'); return; }
+    if (!apps.length){ stamp('No applicants to export', 'error'); return; }
+
+    const zip = new JSZip();
+
+    apps.forEach(a => {
+      const destName = sanitizeFolderName(a.Destination, 'Unspecified destination');
+      const destFolder = zip.folder(destName);
+
+      const isFamily = a.ApplicationType === 'Family' && a.group;
+      const subFolderName = isFamily
+        ? sanitizeFolderName(a.group, 'Family')
+        : sanitizeFolderName(`${a.FirstName || ''} ${a.LastName || ''}`.trim(), a.PassportNo || 'Applicant');
+      const subFolder = destFolder.folder(subFolderName);
+
+      const safeFileBase = sanitizeFolderName(`${a.FirstName || ''}_${a.LastName || ''}`.trim(), a.PassportNo || 'applicant');
+
+      // Applicant data as JSON (photo pulled out and saved as its own image file)
+      const { photo, ...dataOnly } = a;
+      subFolder.file(`${safeFileBase}.json`, JSON.stringify(dataOnly, null, 2));
+
+      if (photo){
+        const match = /^data:image\/(\w+);base64,(.*)$/.exec(photo);
+        if (match){
+          const ext = match[1].replace('jpeg', 'jpg');
+          subFolder.file(`${safeFileBase}_photo.${ext}`, match[2], { base64: true });
+        }
+      }
+    });
+
+    try{
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const u = URL.createObjectURL(blob);
+      const l = document.createElement('a');
+      l.href = u; l.download = `manifest-by-destination-${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(l);
+      l.click();
+      l.remove();
+      URL.revokeObjectURL(u);
+      stamp('Exported by folder');
+    }catch(e){
+      stamp('Folder export failed', 'error');
+    }
   }
 
   function importData(){
