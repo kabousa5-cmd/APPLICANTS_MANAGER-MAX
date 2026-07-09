@@ -414,7 +414,7 @@
       </div>
       <div class="fields">
         <div class="fg"><label>Application type</label>
-          <select id="fat" onkeypress="handleEnter(event,'fdest')">
+          <select id="fat" onchange="ensureFamilyGroup()" onkeypress="handleEnter(event,'fdest')">
             <option value="Individual">Individual</option>
             <option value="Family">Family</option>
           </select>
@@ -806,8 +806,19 @@
         await sync();
       }
       updateUI();
+      const wasNewFamilyMember = editIdx < 0 && record.ApplicationType === 'Family';
       closeModal();
       stamp('Saved');
+
+      if (wasNewFamilyMember){
+        const familyName = record.group || 'this family';
+        if (confirm(`Add another family member to "${familyName}"?`)){
+          showAddModal();
+          document.getElementById('fg').value = record.group;
+          document.getElementById('fat').value = 'Family';
+          document.getElementById('fdest').value = record.Destination;
+        }
+      }
     }catch(e){
       stamp(e.message || 'Save failed', 'error');
     }finally{
@@ -931,6 +942,35 @@
     sync();
     filter = g;
     stamp('Group created');
+  }
+
+  // When "Family" is selected on the applicant form, every family member needs
+  // to share one "file" (group) so they stay together on the manifest. If no
+  // group is already chosen, ask for the family name and create/select that
+  // group right away — the modal stays open, so we patch the <select> in place
+  // rather than waiting on the next updateUI() render.
+  function ensureFamilyGroup(){
+    const fatSel = document.getElementById('fat');
+    const fgSel = document.getElementById('fg');
+    if (fatSel.value !== 'Family' || fgSel.value) return;
+
+    const name = prompt('Family name (used to file all family members together):');
+    if (!name || !name.trim()){
+      fatSel.value = 'Individual';
+      return;
+    }
+    const g = name.trim();
+    if (!groups.includes(g)){
+      groups.push(g);
+      sync().catch(() => {});
+    }
+    if (!Array.from(fgSel.options).some(o => o.value === g)){
+      const opt = document.createElement('option');
+      opt.value = g;
+      opt.textContent = g;
+      fgSel.appendChild(opt);
+    }
+    fgSel.value = g;
   }
 
   async function sync(){
