@@ -413,6 +413,18 @@
         </div>
       </div>
       <div class="fields">
+        <div class="fg"><label>Application type</label>
+          <select id="fat" onkeypress="handleEnter(event,'fdest')">
+            <option value="Individual">Individual</option>
+            <option value="Family">Family</option>
+          </select>
+        </div>
+        <div class="fg"><label>Destination</label>
+          <select id="fdest" onkeypress="handleEnter(event,'ff')">
+            <option value="Spain">Spain</option>
+            <option value="Portugal">Portugal</option>
+          </select>
+        </div>
         <div class="fg"><label>First name *</label><input id="ff" oninput="updateMrz()" onkeypress="handleEnter(event,'fl')"></div>
         <div class="fg"><label>Last name *</label><input id="fl" oninput="updateMrz()" onkeypress="handleEnter(event,'fp')"></div>
         <div class="fg"><label>Passport number *</label><input id="fp" class="mono" oninput="updateMrz()" onkeypress="handleEnter(event,'fd')"><div class="lock-note" id="fp-lock-note" style="display:none;">🔒 Locked while editing — delete and re-add to change the passport number</div></div>
@@ -606,7 +618,7 @@
         <td class="mono">${a.PassportNo||''}</td>
         <td>${a.DateOfBirth || '<span class="dash">—</span>'}</td>
         <td>${a.PlaceOfBirth || '<span class="dash">—</span>'}</td>
-        <td>${a.group ? `<span class="group-tag">${a.group}</span>` : '<span class="dash">—</span>'}</td>
+        <td>${a.group ? `<span class="group-tag">${a.group}</span>` : '<span class="dash">—</span>'} ${a.ApplicationType === 'Family' ? '<span class="group-tag">Family</span>' : ''} ${a.Destination ? `<span class="group-tag">${a.Destination}</span>` : ''}</td>
         <td><div class="row-actions">
           ${a.photo ? `<button class="icon-btn" onclick="downloadPhoto(${idx})">Photo</button>` : ''}
           <button class="icon-btn" onclick="edit(${idx})">Edit</button>
@@ -627,6 +639,8 @@
     currentPhotoBase64 = null;
     document.getElementById('modal-title').textContent = 'Add applicant';
     document.getElementById('fg').value = filter === 'all' ? '' : filter;
+    document.getElementById('fat').value = 'Individual';
+    document.getElementById('fdest').value = 'Spain';
     ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph','fgen','fms','fpj','frel','fpid','fped'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('fp').removeAttribute('readonly');
     document.getElementById('fp-lock-note').style.display = 'none';
@@ -646,6 +660,8 @@
     const a = apps[i];
     document.getElementById('modal-title').textContent = 'Edit applicant';
     document.getElementById('fg').value = a.group || '';
+    document.getElementById('fat').value = a.ApplicationType || 'Individual';
+    document.getElementById('fdest').value = a.Destination || 'Spain';
     document.getElementById('ff').value = a.FirstName || '';
     document.getElementById('fl').value = a.LastName || '';
     document.getElementById('fp').value = a.PassportNo || '';
@@ -740,6 +756,8 @@
     // (defense in depth) — an edit must never change the record's identity.
     const record = {
       group: document.getElementById('fg').value,
+      ApplicationType: document.getElementById('fat').value,
+      Destination: document.getElementById('fdest').value,
       FirstName: firstVal,
       LastName: lastVal,
       PassportNo: editIdx >= 0 ? originalPassportNo : passportVal,
