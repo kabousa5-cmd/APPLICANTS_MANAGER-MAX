@@ -225,10 +225,13 @@
     font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--brass-light);
     color:var(--brass);border-radius:20px;background:#FBF6EC;white-space:nowrap;
   }
+  .group-header-row{cursor:pointer;}
   .group-header-row td{
     background:var(--navy);color:var(--white);font-family:'Fraunces',serif;font-weight:600;
     font-size:12.5px;letter-spacing:0.5px;padding:9px 16px;border-top:2px solid var(--brass);
   }
+  .group-header-row:hover td{background:#1a2350;}
+  .group-header-arrow{display:inline-block;width:16px;color:var(--brass-light);}
   .dash{color:var(--ink-faint);}
   .row-actions{display:flex;gap:6px;}
   .icon-btn{
@@ -500,6 +503,11 @@
   let currentPhotoBase64 = null;
   let isModalOpen = false;
   let originalPassportNo = null; // FIX: identity used for atomic edit, independent of the (possibly edited) passport field
+  // Tracks which family groups are currently expanded (showing their
+  // members) while browsing the "All" list. Groups start collapsed —
+  // clicking a family's header row reveals its members; clicking again
+  // hides them.
+  let expandedGroups = new Set();
 
   function pad(str, len){
     str = (str || '').toUpperCase().replace(/[^A-Z0-9]/g, '<');
@@ -628,16 +636,27 @@
     }
 
     let lastGroup = undefined;
-    tb.innerHTML = filtered.map(a => {
+    let html = '';
+    filtered.forEach(a => {
       const idx = apps.indexOf(a);
       const g = a.group || '';
-      let groupHeaderRow = '';
+
       if (g && g !== lastGroup){
         const memberCount = apps.filter(x => x.group === g).length;
-        groupHeaderRow = `<tr class="group-header-row"><td colspan="8">${g} — ${memberCount} member${memberCount===1?'':'s'}</td></tr>`;
+        // While browsing "All", a specific family only shows once you click
+        // its header to expand it — clicking again collapses it back.
+        // When a group chip is already filtering the list, there's nothing
+        // else to hide, so always show the members.
+        const isExpanded = filter !== 'all' || expandedGroups.has(g);
+        const arrow = isExpanded ? '▾' : '▸';
+        html += `<tr class="group-header-row" onclick="toggleGroup('${g.replace(/'/g, "\\'")}')"><td colspan="8"><span class="group-header-arrow">${arrow}</span>${g} — ${memberCount} member${memberCount===1?'':'s'}</td></tr>`;
       }
       lastGroup = g;
-      return groupHeaderRow + `<tr>
+
+      const isVisible = !g || filter !== 'all' || expandedGroups.has(g);
+      if (!isVisible) return;
+
+      html += `<tr>
         <td class="row-no">${String(idx+1).padStart(3,'0')}</td>
         <td>${a.photo ? `<img class="photo-thumb" src="${a.photo}">` : '<div class="no-photo">—</div>'}</td>
         <td class="name-cell holdable" data-idx="${idx}" onmousedown="holdStart(event,${idx})" onmouseup="holdEnd()" onmouseleave="holdEnd()" ontouchstart="holdStart(event,${idx})" ontouchend="holdEnd()" ontouchcancel="holdEnd()"><div class="hold-fill"></div><strong>${a.FirstName||''} ${a.LastName||''}</strong>${(a.City||a.PostalCode) ? `<small>${[a.City,a.PostalCode].filter(Boolean).join(', ')}</small>` : ''}</td>
@@ -650,7 +669,14 @@
           <button class="icon-btn" onclick="edit(${idx})">Edit</button>
         </div></td>
       </tr>`;
-    }).join('');
+    });
+    tb.innerHTML = html;
+  }
+
+  function toggleGroup(g){
+    if (expandedGroups.has(g)) expandedGroups.delete(g);
+    else expandedGroups.add(g);
+    filterApplicants();
   }
 
   function resetPhotoSlot(url){
