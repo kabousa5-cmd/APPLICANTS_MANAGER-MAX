@@ -252,8 +252,9 @@
   .page-header{
     background:var(--navy);color:var(--white);padding:22px 28px;
     display:flex;justify-content:space-between;align-items:center;
-    border-bottom:3px solid var(--brass);
+    border-bottom:3px solid var(--brass);cursor:grab;user-select:none;
   }
+  .page-header.dragging{cursor:grabbing;}
   .page-header h2{font-family:'Fraunces',serif;font-weight:600;font-size:20px;}
   .page-header small{display:block;color:rgba(255,255,255,0.5);font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-top:4px;}
   .close-btn{
@@ -1132,6 +1133,65 @@
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 2800);
   }
+
+  // FEATURE: Draggable Add Applicant window — click-and-drag the header
+  // (title bar) of the applicant modal to move it anywhere on screen.
+  // Works with mouse and touch. Position resets each time the modal opens.
+  (function enableDraggableModal(){
+    const modalEl = document.getElementById('modal');
+    const page = modalEl.querySelector('.page');
+    const header = modalEl.querySelector('.page-header');
+    if (!modalEl || !page || !header) return;
+
+    let offsetX = 0, offsetY = 0;
+    let startX = 0, startY = 0;
+    let dragging = false;
+
+    function pointFrom(e){ return e.touches ? e.touches[0] : e; }
+
+    function onPointerDown(e){
+      if (e.target.closest('.close-btn')) return;
+      dragging = true;
+      const p = pointFrom(e);
+      startX = p.clientX - offsetX;
+      startY = p.clientY - offsetY;
+      header.classList.add('dragging');
+      document.addEventListener('mousemove', onPointerMove);
+      document.addEventListener('mouseup', onPointerUp);
+      document.addEventListener('touchmove', onPointerMove, { passive: false });
+      document.addEventListener('touchend', onPointerUp);
+    }
+
+    function onPointerMove(e){
+      if (!dragging) return;
+      e.preventDefault();
+      const p = pointFrom(e);
+      offsetX = p.clientX - startX;
+      offsetY = p.clientY - startY;
+      page.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+    }
+
+    function onPointerUp(){
+      dragging = false;
+      header.classList.remove('dragging');
+      document.removeEventListener('mousemove', onPointerMove);
+      document.removeEventListener('mouseup', onPointerUp);
+      document.removeEventListener('touchmove', onPointerMove);
+      document.removeEventListener('touchend', onPointerUp);
+    }
+
+    header.addEventListener('mousedown', onPointerDown);
+    header.addEventListener('touchstart', onPointerDown, { passive: true });
+
+    // Re-center the window every time it's opened again, so a previous
+    // drag doesn't leave it stuck off in a corner (or off-screen) next time.
+    new MutationObserver(() => {
+      if (!modalEl.classList.contains('active')){
+        offsetX = 0; offsetY = 0;
+        page.style.transform = '';
+      }
+    }).observe(modalEl, { attributes: true, attributeFilter: ['class'] });
+  })();
 
   document.addEventListener('DOMContentLoaded', loadData);
   setInterval(() => { if (!isModalOpen) loadData(); }, 10000);
