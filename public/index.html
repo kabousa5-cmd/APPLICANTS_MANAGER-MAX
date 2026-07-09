@@ -425,6 +425,10 @@
             <option value="Portugal">Portugal</option>
           </select>
         </div>
+        <div class="fg" id="family-filename-row" style="display:none;">
+          <label>Family file name</label>
+          <input id="ffilename" placeholder="e.g. OMAR FAMILLE" oninput="splitFamilyFileName()" onkeypress="handleEnter(event,'ff')">
+        </div>
         <div class="fg"><label>First name *</label><input id="ff" oninput="updateMrz()" onkeypress="handleEnter(event,'fl')"></div>
         <div class="fg"><label>Last name *</label><input id="fl" oninput="updateMrz()" onkeypress="handleEnter(event,'fp')"></div>
         <div class="fg"><label>Passport number *</label><input id="fp" class="mono" oninput="updateMrz()" onkeypress="handleEnter(event,'fd')"><div class="lock-note" id="fp-lock-note" style="display:none;">🔒 Locked while editing — delete and re-add to change the passport number</div></div>
@@ -681,6 +685,7 @@
     document.getElementById('fat').value = a.ApplicationType || 'Individual';
     document.getElementById('fdest').value = a.Destination || 'Spain';
     toggleFamilyButton();
+    document.getElementById('ffilename').value = a.FamilyFileName || '';
     document.getElementById('ff').value = a.FirstName || '';
     document.getElementById('fl').value = a.LastName || '';
     document.getElementById('fp').value = a.PassportNo || '';
@@ -779,6 +784,7 @@
       group: document.getElementById('fg').value,
       ApplicationType: document.getElementById('fat').value,
       Destination: document.getElementById('fdest').value,
+      FamilyFileName: document.getElementById('ffilename').value.trim(),
       FirstName: firstVal,
       LastName: lastVal,
       PassportNo: editIdx >= 0 ? originalPassportNo : passportVal,
@@ -998,12 +1004,26 @@
     toggleFamilyButton();
   }
 
-  // Shows/hides the "Save & add family applicant" row based on the
-  // currently selected Application type.
+  // Shows/hides the "Save & add family applicant" row and the Family file
+  // name field based on the currently selected Application type.
   function toggleFamilyButton(){
     const row = document.getElementById('save-family-row');
+    const nameRow = document.getElementById('family-filename-row');
     const isFamily = document.getElementById('fat').value === 'Family';
     row.style.display = isFamily ? 'flex' : 'none';
+    nameRow.style.display = isFamily ? 'block' : 'none';
+    if (!isFamily) document.getElementById('ffilename').value = '';
+  }
+
+  // Typing "OMAR FAMILLE" into the Family file name field splits it: the
+  // first word fills First name, the rest fills Last name.
+  function splitFamilyFileName(){
+    const raw = document.getElementById('ffilename').value.trim();
+    if (!raw) return;
+    const parts = raw.split(/\s+/);
+    document.getElementById('ff').value = parts[0];
+    document.getElementById('fl').value = parts.slice(1).join(' ');
+    updateMrz();
   }
 
   async function sync(){
