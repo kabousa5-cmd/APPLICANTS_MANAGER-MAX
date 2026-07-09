@@ -413,10 +413,9 @@
         <div class="photo-slot" id="photo-slot"><span class="ph">＋</span></div>
         <input type="file" id="fph" accept="image/*">
         <div id="upload-status" class="upload-status"></div>
-        <div class="fg"><label>Group</label>
-          <select id="fg" onkeypress="handleEnter(event,'ff')">
-            <option value="">No group</option>
-          </select>
+        <div class="fg"><label id="group-field-label">Group</label>
+          <input type="text" id="fg" list="fg-list" autocomplete="off" placeholder="Optional" onkeypress="handleEnter(event,'ff')">
+          <datalist id="fg-list"></datalist>
         </div>
       </div>
       <div class="fields">
@@ -489,6 +488,7 @@
 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;MAR&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</div>
     <div class="page-footer">
       <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-outline" id="add-family-btn" style="display:none;" onclick="save(true)">+ Add another family member</button>
       <button class="btn btn-seal" id="save-btn" onclick="save()">Save applicant</button>
     </div>
   </div>
@@ -546,13 +546,10 @@
     document.getElementById('photo-pct').textContent = apps.length ? Math.round(withPhoto/apps.length*100) + '%' : '';
     document.getElementById('manifest-meta').textContent = apps.length + ' record' + (apps.length===1?'':'s') + ' on file';
 
-    if (!isModalOpen){
-      const fg = document.getElementById('fg');
-      const prev = fg.value;
-      fg.innerHTML = '<option value="">No group</option>';
-      groups.forEach(g => fg.innerHTML += `<option value="${g}">${g}</option>`);
-      if (prev) fg.value = prev;
-    }
+    // A <datalist> can be refreshed freely without disturbing whatever the
+    // user is currently typing in the family-name field, unlike a <select>.
+    const fgList = document.getElementById('fg-list');
+    fgList.innerHTML = groups.map(g => `<option value="${g}">`).join('');
 
     const gf = document.getElementById('groups-filter');
     gf.innerHTML = '';
@@ -661,51 +658,54 @@
     slot.innerHTML = url ? `<img src="${url}">` : '<span class="ph">＋</span>';
   }
 
-  // Makes sure the group <select> in the modal has an <option> for the
-  // given name, even if it was just created mid-edit and hasn't been
-  // through a full updateUI() refresh yet.
+  // Makes sure the family-name suggestions <datalist> includes this value,
+  // even if it was just created mid-edit and hasn't been through a full
+  // updateUI() refresh yet.
   function ensureGroupOption(g){
-    const fg = document.getElementById('fg');
-    const exists = Array.from(fg.options).some(o => o.value === g);
+    const dl = document.getElementById('fg-list');
+    const exists = Array.from(dl.options).some(o => o.value === g);
     if (!exists){
       const opt = document.createElement('option');
-      opt.value = g; opt.textContent = g;
-      fg.appendChild(opt);
+      opt.value = g;
+      dl.appendChild(opt);
     }
   }
 
-  // FEATURE: Family file — picking "Family" as the application type opens
-  // a prompt for the family's file name (e.g. "Benali Family"). That name
-  // becomes the group, and every family member added afterward is filed
-  // under the same group so the whole family stays together on the manifest.
+  // FEATURE: Family name field — the Group field doubles as the family
+  // name: picking "Family" as the application type relabels it "Family
+  // name" and moves focus straight to it so the name can just be typed in
+  // (no popup). Whatever is typed there is what every family member added
+  // afterward will be filed under.
   function onAppTypeChange(){
     const at = document.getElementById('fat').value;
     const fg = document.getElementById('fg');
-    if (at === 'Family' && !fg.value){
-      const lastName = document.getElementById('fl').value.trim();
-      const suggested = lastName ? `${lastName} Family` : '';
-      const name = prompt('Name this family file — every family member you add will be grouped under it:', suggested);
-      if (name && name.trim()){
-        const g = name.trim();
-        if (!groups.includes(g)) groups.push(g);
-        ensureGroupOption(g);
-        fg.value = g;
-      }
+    const label = document.getElementById('group-field-label');
+    const addFamilyBtn = document.getElementById('add-family-btn');
+    if (at === 'Family'){
+      label.textContent = 'Family name';
+      fg.placeholder = 'e.g. Bouchaib Family';
+      addFamilyBtn.style.display = '';
+      if (!fg.value) fg.focus();
+    } else {
+      label.textContent = 'Group';
+      fg.placeholder = 'Optional';
+      addFamilyBtn.style.display = 'none';
     }
   }
 
   // Opens a fresh, blank applicant form already filed under the given
   // family group, so the next family member is entered without having
-  // to re-pick the group or application type.
+  // to re-type the family name or re-pick the application type.
   function addFamilyMember(groupName, destination){
     isModalOpen = true;
     editIdx = -1;
     originalPassportNo = null;
     currentPhotoBase64 = null;
     document.getElementById('modal-title').textContent = 'Add family member';
-    ensureGroupOption(groupName);
+    if (groupName) ensureGroupOption(groupName);
     document.getElementById('fg').value = groupName || '';
     document.getElementById('fat').value = 'Family';
+    onAppTypeChange();
     document.getElementById('fdest').value = destination || 'Spain';
     ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph','fgen','fms','fpj','frel','fpid','fped'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('fp').removeAttribute('readonly');
@@ -727,6 +727,7 @@
     document.getElementById('fg').value = filter === 'all' ? '' : filter;
     document.getElementById('fat').value = 'Individual';
     document.getElementById('fdest').value = 'Spain';
+    onAppTypeChange();
     ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph','fgen','fms','fpj','frel','fpid','fped'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('fp').removeAttribute('readonly');
     document.getElementById('fp-lock-note').style.display = 'none';
@@ -748,6 +749,7 @@
     document.getElementById('fg').value = a.group || '';
     document.getElementById('fat').value = a.ApplicationType || 'Individual';
     document.getElementById('fdest').value = a.Destination || 'Spain';
+    onAppTypeChange();
     document.getElementById('ff').value = a.FirstName || '';
     document.getElementById('fl').value = a.LastName || '';
     document.getElementById('fp').value = a.PassportNo || '';
@@ -820,8 +822,9 @@
     });
   }
 
-  async function save(){
+  async function save(continueFamily = false){
     const saveBtn = document.getElementById('save-btn');
+    const addFamilyBtn = document.getElementById('add-family-btn');
     const passportVal = document.getElementById('fp').value.trim();
     const firstVal = document.getElementById('ff').value.trim();
     const lastVal = document.getElementById('fl').value.trim();
@@ -836,12 +839,13 @@
     }
 
     saveBtn.disabled = true;
+    addFamilyBtn.disabled = true;
     saveBtn.textContent = 'Saving…';
 
     // FIX: passport number is locked during edit, but force it server-side too
     // (defense in depth) — an edit must never change the record's identity.
     const record = {
-      group: document.getElementById('fg').value,
+      group: document.getElementById('fg').value.trim(),
       ApplicationType: document.getElementById('fat').value,
       Destination: document.getElementById('fdest').value,
       FirstName: firstVal,
@@ -893,8 +897,19 @@
       }
       updateUI();
 
-      // FEATURE: Family file — after saving a family member, offer to add
-      // the next one right away, pre-filed under the same family group.
+      // FEATURE: Family name field — the dedicated "+ Add another family
+      // member" button saves the current member and jumps straight to a
+      // blank form for the next one, no confirm prompt needed since the
+      // click itself was the explicit request.
+      if (continueFamily){
+        stamp('Saved');
+        addFamilyMember(record.group, record.Destination);
+        return;
+      }
+
+      // The regular Save button still offers to continue the family so
+      // people who didn't notice the dedicated button aren't stuck
+      // re-entering the family name for every member.
       if (record.ApplicationType === 'Family' && editIdx < 0){
         stamp('Saved');
         const groupLabel = record.group ? `"${record.group}"` : 'this family';
@@ -911,6 +926,7 @@
       stamp(e.message || 'Save failed', 'error');
     }finally{
       saveBtn.disabled = false;
+      addFamilyBtn.disabled = false;
       saveBtn.textContent = 'Save applicant';
     }
   }
