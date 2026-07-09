@@ -414,7 +414,7 @@
       </div>
       <div class="fields">
         <div class="fg"><label>Application type</label>
-          <select id="fat" onchange="ensureFamilyGroup()" onkeypress="handleEnter(event,'fdest')">
+          <select id="fat" onkeypress="handleEnter(event,'fdest')" onchange="onAppTypeChange()">
             <option value="Individual">Individual</option>
             <option value="Family">Family</option>
           </select>
@@ -632,6 +632,63 @@
     slot.innerHTML = url ? `<img src="${url}">` : '<span class="ph">＋</span>';
   }
 
+  // Makes sure the group <select> in the modal has an <option> for the
+  // given name, even if it was just created mid-edit and hasn't been
+  // through a full updateUI() refresh yet.
+  function ensureGroupOption(g){
+    const fg = document.getElementById('fg');
+    const exists = Array.from(fg.options).some(o => o.value === g);
+    if (!exists){
+      const opt = document.createElement('option');
+      opt.value = g; opt.textContent = g;
+      fg.appendChild(opt);
+    }
+  }
+
+  // FEATURE: Family file — picking "Family" as the application type opens
+  // a prompt for the family's file name (e.g. "Benali Family"). That name
+  // becomes the group, and every family member added afterward is filed
+  // under the same group so the whole family stays together on the manifest.
+  function onAppTypeChange(){
+    const at = document.getElementById('fat').value;
+    const fg = document.getElementById('fg');
+    if (at === 'Family' && !fg.value){
+      const lastName = document.getElementById('fl').value.trim();
+      const suggested = lastName ? `${lastName} Family` : '';
+      const name = prompt('Name this family file — every family member you add will be grouped under it:', suggested);
+      if (name && name.trim()){
+        const g = name.trim();
+        if (!groups.includes(g)) groups.push(g);
+        ensureGroupOption(g);
+        fg.value = g;
+      }
+    }
+  }
+
+  // Opens a fresh, blank applicant form already filed under the given
+  // family group, so the next family member is entered without having
+  // to re-pick the group or application type.
+  function addFamilyMember(groupName, destination){
+    isModalOpen = true;
+    editIdx = -1;
+    originalPassportNo = null;
+    currentPhotoBase64 = null;
+    document.getElementById('modal-title').textContent = 'Add family member';
+    ensureGroupOption(groupName);
+    document.getElementById('fg').value = groupName || '';
+    document.getElementById('fat').value = 'Family';
+    document.getElementById('fdest').value = destination || 'Spain';
+    ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph','fgen','fms','fpj','frel','fpid','fped'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('fp').removeAttribute('readonly');
+    document.getElementById('fp-lock-note').style.display = 'none';
+    resetPhotoSlot(null);
+    document.getElementById('upload-status').textContent = '';
+    document.getElementById('save-btn').disabled = false;
+    updateMrz();
+    document.getElementById('modal').classList.add('active');
+    setTimeout(() => document.getElementById('ff').focus(), 100);
+  }
+
   function showAddModal(){
     isModalOpen = true;
     editIdx = -1;
@@ -806,19 +863,21 @@
         await sync();
       }
       updateUI();
-      const wasNewFamilyMember = editIdx < 0 && record.ApplicationType === 'Family';
-      closeModal();
-      stamp('Saved');
 
-      if (wasNewFamilyMember){
-        const familyName = record.group || 'this family';
-        if (confirm(`Add another family member to "${familyName}"?`)){
-          showAddModal();
-          document.getElementById('fg').value = record.group;
-          document.getElementById('fat').value = 'Family';
-          document.getElementById('fdest').value = record.Destination;
+      // FEATURE: Family file — after saving a family member, offer to add
+      // the next one right away, pre-filed under the same family group.
+      if (record.ApplicationType === 'Family' && editIdx < 0){
+        stamp('Saved');
+        const groupLabel = record.group ? `"${record.group}"` : 'this family';
+        const addAnother = confirm(`Saved. Add another family member to ${groupLabel}?`);
+        if (addAnother){
+          addFamilyMember(record.group, record.Destination);
+          return;
         }
+      } else {
+        stamp('Saved');
       }
+      closeModal();
     }catch(e){
       stamp(e.message || 'Save failed', 'error');
     }finally{
@@ -942,35 +1001,6 @@
     sync();
     filter = g;
     stamp('Group created');
-  }
-
-  // When "Family" is selected on the applicant form, every family member needs
-  // to share one "file" (group) so they stay together on the manifest. If no
-  // group is already chosen, ask for the family name and create/select that
-  // group right away — the modal stays open, so we patch the <select> in place
-  // rather than waiting on the next updateUI() render.
-  function ensureFamilyGroup(){
-    const fatSel = document.getElementById('fat');
-    const fgSel = document.getElementById('fg');
-    if (fatSel.value !== 'Family' || fgSel.value) return;
-
-    const name = prompt('Family name (used to file all family members together):');
-    if (!name || !name.trim()){
-      fatSel.value = 'Individual';
-      return;
-    }
-    const g = name.trim();
-    if (!groups.includes(g)){
-      groups.push(g);
-      sync().catch(() => {});
-    }
-    if (!Array.from(fgSel.options).some(o => o.value === g)){
-      const opt = document.createElement('option');
-      opt.value = g;
-      opt.textContent = g;
-      fgSel.appendChild(opt);
-    }
-    fgSel.value = g;
   }
 
   async function sync(){
