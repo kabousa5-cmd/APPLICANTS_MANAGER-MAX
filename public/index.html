@@ -233,6 +233,11 @@
     border-top:3px solid var(--brass);
   }
   .destination-header-row:hover td{background:#1a2350;}
+  .section-header-row td{
+    background:#5c4423;color:var(--white);font-family:'Fraunces',serif;font-weight:700;
+    font-size:12.5px;letter-spacing:0.6px;text-transform:uppercase;padding:9px 16px;
+    border-top:2px solid var(--brass);
+  }
   .city-header-row{cursor:pointer;}
   .city-header-row td{
     background:#232c55;color:rgba(255,255,255,0.9);font-family:'Fraunces',serif;font-weight:600;
@@ -817,18 +822,29 @@
         html += `<tr class="city-header-row" onclick="toggleCity('${escapeJs(cityKey)}')"><td colspan="8"><span class="tree-arrow">${cArrow}</span>${escapeHtml(city)} — ${cityApps.length} applicant${cityApps.length===1?'':'s'}</td></tr>`;
         if (!cityExpanded) return;
 
-        const byFamily = groupByKey(cityApps, a => a.FamilyName || '');
-        const familyKeys = Array.from(byFamily.keys()).filter(k => k).sort((a, b) => a.localeCompare(b));
+        const cityFamilyMembers = cityApps.filter(a => a.ApplicationType === 'Family');
+        const cityIndividuals = cityApps.filter(a => a.ApplicationType !== 'Family');
 
-        familyKeys.forEach(fam => {
-          const members = byFamily.get(fam);
-          const famExpanded = expandedGroups.has(fam);
-          const fArrow = famExpanded ? '▾' : '▸';
-          html += `<tr class="group-header-row" onclick="toggleGroup('${escapeJs(fam)}')"><td colspan="8"><span class="group-header-arrow">${fArrow}</span>👪 ${escapeHtml(fam)} — ${members.length} member${members.length===1?'':'s'}</td></tr>`;
-          if (famExpanded) members.forEach(a => { html += renderApplicantRow(a); });
-        });
+        if (cityFamilyMembers.length){
+          html += `<tr class="section-header-row"><td colspan="8">👪 Family applications — ${cityFamilyMembers.length}</td></tr>`;
+          const byFamily = groupByKey(cityFamilyMembers, a => a.FamilyName || '');
+          const familyKeys = Array.from(byFamily.keys()).filter(k => k).sort((a, b) => a.localeCompare(b));
 
-        (byFamily.get('') || []).forEach(a => { html += renderApplicantRow(a); });
+          familyKeys.forEach(fam => {
+            const members = byFamily.get(fam);
+            const famExpanded = expandedGroups.has(fam);
+            const fArrow = famExpanded ? '▾' : '▸';
+            html += `<tr class="group-header-row" onclick="toggleGroup('${escapeJs(fam)}')"><td colspan="8"><span class="group-header-arrow">${fArrow}</span>👪 ${escapeHtml(fam)} — ${members.length} member${members.length===1?'':'s'}</td></tr>`;
+            if (famExpanded) members.forEach(a => { html += renderApplicantRow(a); });
+          });
+
+          (byFamily.get('') || []).forEach(a => { html += renderApplicantRow(a); });
+        }
+
+        if (cityIndividuals.length){
+          html += `<tr class="section-header-row"><td colspan="8">👤 Individual applications — ${cityIndividuals.length}</td></tr>`;
+          cityIndividuals.forEach(a => { html += renderApplicantRow(a); });
+        }
       });
     });
 
@@ -838,20 +854,34 @@
   // FEATURE: Family folders within a single selected group — a Group chip
   // (e.g. "BOUCHAIB") can contain several distinct families (different
   // Family names), so members are clustered by FamilyName into their own
-  // collapsible folder instead of one long flat list. Anyone without a
-  // FamilyName is shown directly, ungrouped.
+  // collapsible folder instead of one long flat list. On top of that,
+  // Family-type applications and Individual-type applications are kept in
+  // two clearly separate sections so they never blend into each other.
   function renderFamilyGroupedList(list){
-    const byFamily = groupByKey(list, a => a.FamilyName || '');
-    const familyKeys = Array.from(byFamily.keys()).filter(k => k).sort((a, b) => a.localeCompare(b));
+    const familyMembers = list.filter(a => a.ApplicationType === 'Family');
+    const individuals = list.filter(a => a.ApplicationType !== 'Family');
     let html = '';
-    familyKeys.forEach(fam => {
-      const members = byFamily.get(fam);
-      const collapsed = collapsedFamilyFolders.has(fam);
-      const fArrow = collapsed ? '▸' : '▾';
-      html += `<tr class="group-header-row" onclick="toggleFamilyFolder('${escapeJs(fam)}')"><td colspan="8"><span class="group-header-arrow">${fArrow}</span>👪 ${escapeHtml(fam)} — ${members.length} member${members.length===1?'':'s'}</td></tr>`;
-      if (!collapsed) members.forEach(a => { html += renderApplicantRow(a); });
-    });
-    (byFamily.get('') || []).forEach(a => { html += renderApplicantRow(a); });
+
+    if (familyMembers.length){
+      html += `<tr class="section-header-row"><td colspan="8">👪 Family applications — ${familyMembers.length}</td></tr>`;
+      const byFamily = groupByKey(familyMembers, a => a.FamilyName || '');
+      const familyKeys = Array.from(byFamily.keys()).filter(k => k).sort((a, b) => a.localeCompare(b));
+      familyKeys.forEach(fam => {
+        const members = byFamily.get(fam);
+        const collapsed = collapsedFamilyFolders.has(fam);
+        const fArrow = collapsed ? '▸' : '▾';
+        html += `<tr class="group-header-row" onclick="toggleFamilyFolder('${escapeJs(fam)}')"><td colspan="8"><span class="group-header-arrow">${fArrow}</span>👪 ${escapeHtml(fam)} — ${members.length} member${members.length===1?'':'s'}</td></tr>`;
+        if (!collapsed) members.forEach(a => { html += renderApplicantRow(a); });
+      });
+      // Family-type members that don't have a Family name yet — shown directly, still inside the Family section
+      (byFamily.get('') || []).forEach(a => { html += renderApplicantRow(a); });
+    }
+
+    if (individuals.length){
+      html += `<tr class="section-header-row"><td colspan="8">👤 Individual applications — ${individuals.length}</td></tr>`;
+      individuals.forEach(a => { html += renderApplicantRow(a); });
+    }
+
     return html;
   }
 
