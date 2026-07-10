@@ -431,7 +431,7 @@
         <input type="file" id="fph" accept="image/*">
         <div id="upload-status" class="upload-status"></div>
         <div class="fg"><label id="group-field-label">Group</label>
-          <input type="text" id="fg" list="fg-list" autocomplete="off" placeholder="Optional" oninput="updateModalTitle()" onkeypress="handleEnter(event,'ff')">
+          <input type="text" id="fg" list="fg-list" autocomplete="off" placeholder="Optional" oninput="syncFamilyName('fg')" onkeypress="handleEnter(event,'ff')">
           <datalist id="fg-list"></datalist>
         </div>
       </div>
@@ -441,6 +441,9 @@
             <option value="Individual">Individual</option>
             <option value="Family">Family</option>
           </select>
+        </div>
+        <div class="fg" id="fg-familyname-inline" style="display:none;"><label>Family name</label>
+          <input type="text" id="fg2" list="fg-list" autocomplete="off" placeholder="e.g. Bouchaib Family" oninput="syncFamilyName('fg2')" onkeypress="handleEnter(event,'fdest')">
         </div>
         <div class="fg"><label>Destination</label>
           <select id="fdest" onkeypress="handleEnter(event,'fc')" onchange="onDestinationChange()">
@@ -891,18 +894,36 @@
   function onAppTypeChange(){
     const at = document.getElementById('fat').value;
     const fg = document.getElementById('fg');
+    const fg2 = document.getElementById('fg2');
     const label = document.getElementById('group-field-label');
     const addFamilyBtn = document.getElementById('add-family-btn');
+    const inlineWrap = document.getElementById('fg-familyname-inline');
     if (at === 'Family'){
       label.textContent = 'Family name';
       fg.placeholder = 'e.g. Bouchaib Family';
       addFamilyBtn.style.display = '';
-      if (!fg.value) fg.focus();
+      inlineWrap.style.display = '';
+      fg2.value = fg.value;
+      if (!fg.value) fg2.focus();
     } else {
       label.textContent = 'Group';
       fg.placeholder = 'Optional';
       addFamilyBtn.style.display = 'none';
+      inlineWrap.style.display = 'none';
     }
+    updateModalTitle();
+  }
+
+  // FEATURE: Two-way sync between the two family-name inputs — the small
+  // one under the photo (#fg, the actual value that gets saved) and the
+  // one shown inline right next to "Application type" (#fg2, added so the
+  // name field is visible right where "Family" is picked, not just off to
+  // the side). Typing in either one updates the other and the modal title.
+  function syncFamilyName(source){
+    const fg = document.getElementById('fg');
+    const fg2 = document.getElementById('fg2');
+    if (source === 'fg2') fg.value = fg2.value;
+    else fg2.value = fg.value;
     updateModalTitle();
   }
 
