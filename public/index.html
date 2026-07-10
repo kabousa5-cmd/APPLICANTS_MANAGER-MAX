@@ -584,11 +584,29 @@
     'NADOR': '62000',
     'RABAT': '10000'
   };
+  // Safely sets a <select>'s value even if the value isn't among its
+  // current <option>s (e.g. Center uses "TANGIER" while Issue place uses
+  // "TANGER") — adds a matching option on the fly rather than silently
+  // leaving the field blank.
+  function setSelectValueSafe(id, value){
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    if (!value){ sel.value = ''; return; }
+    const has = Array.from(sel.options).some(o => o.value === value);
+    if (!has){
+      const opt = document.createElement('option');
+      opt.value = value; opt.textContent = value;
+      sel.appendChild(opt);
+    }
+    sel.value = value;
+  }
+
   function onCenterChange(){
     const c = document.getElementById('fc').value;
     if (!c) return;
     document.getElementById('fa1').value = c;
     document.getElementById('fpc').value = CENTER_POSTAL_CODES[c] || '';
+    setSelectValueSafe('fi', c);
   }
 
   // Rebuilds the Center dropdown's options for the given destination.
@@ -885,6 +903,8 @@
     document.getElementById('fdest').value = destination || 'Spain';
     ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph','fgen','fms','fpj','frel','fpid','fped'].forEach(id => document.getElementById(id).value = '');
     onDestinationChange('');
+    document.getElementById('fpj').value = 'Tourism';
+    document.getElementById('frel').value = 'Father';
     document.getElementById('fp').removeAttribute('readonly');
     document.getElementById('fp-lock-note').style.display = 'none';
     resetPhotoSlot(null);
@@ -907,6 +927,8 @@
     onAppTypeChange();
     ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph','fgen','fms','fpj','frel','fpid','fped'].forEach(id => document.getElementById(id).value = '');
     onDestinationChange('');
+    document.getElementById('fpj').value = 'Tourism';
+    document.getElementById('frel').value = 'Father';
     document.getElementById('fp').removeAttribute('readonly');
     document.getElementById('fp-lock-note').style.display = 'none';
     resetPhotoSlot(null);
