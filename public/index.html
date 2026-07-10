@@ -548,6 +548,10 @@
   // families/individuals. Each node opens and closes independently.
   let collapsedDestinations = new Set();
   let expandedCities = new Set();
+  // When a single group is selected via the chips, families within it start
+  // EXPANDED (opposite default from the "All" tree) since the list is
+  // already small — collapsing one hides that family's members.
+  let collapsedFamilyFolders = new Set();
 
   function pad(str, len){
     str = (str || '').toUpperCase().replace(/[^A-Z0-9]/g, '<');
@@ -813,14 +817,14 @@
         html += `<tr class="city-header-row" onclick="toggleCity('${escapeJs(cityKey)}')"><td colspan="8"><span class="tree-arrow">${cArrow}</span>${escapeHtml(city)} — ${cityApps.length} applicant${cityApps.length===1?'':'s'}</td></tr>`;
         if (!cityExpanded) return;
 
-        const byFamily = groupByKey(cityApps, a => a.group || '');
+        const byFamily = groupByKey(cityApps, a => a.FamilyName || '');
         const familyKeys = Array.from(byFamily.keys()).filter(k => k).sort((a, b) => a.localeCompare(b));
 
         familyKeys.forEach(fam => {
           const members = byFamily.get(fam);
           const famExpanded = expandedGroups.has(fam);
           const fArrow = famExpanded ? '▾' : '▸';
-          html += `<tr class="group-header-row" onclick="toggleGroup('${escapeJs(fam)}')"><td colspan="8"><span class="group-header-arrow">${fArrow}</span>${escapeHtml(fam)} — ${members.length} member${members.length===1?'':'s'}</td></tr>`;
+          html += `<tr class="group-header-row" onclick="toggleGroup('${escapeJs(fam)}')"><td colspan="8"><span class="group-header-arrow">${fArrow}</span>👪 ${escapeHtml(fam)} — ${members.length} member${members.length===1?'':'s'}</td></tr>`;
           if (famExpanded) members.forEach(a => { html += renderApplicantRow(a); });
         });
 
@@ -829,6 +833,32 @@
     });
 
     return html;
+  }
+
+  // FEATURE: Family folders within a single selected group — a Group chip
+  // (e.g. "BOUCHAIB") can contain several distinct families (different
+  // Family names), so members are clustered by FamilyName into their own
+  // collapsible folder instead of one long flat list. Anyone without a
+  // FamilyName is shown directly, ungrouped.
+  function renderFamilyGroupedList(list){
+    const byFamily = groupByKey(list, a => a.FamilyName || '');
+    const familyKeys = Array.from(byFamily.keys()).filter(k => k).sort((a, b) => a.localeCompare(b));
+    let html = '';
+    familyKeys.forEach(fam => {
+      const members = byFamily.get(fam);
+      const collapsed = collapsedFamilyFolders.has(fam);
+      const fArrow = collapsed ? '▸' : '▾';
+      html += `<tr class="group-header-row" onclick="toggleFamilyFolder('${escapeJs(fam)}')"><td colspan="8"><span class="group-header-arrow">${fArrow}</span>👪 ${escapeHtml(fam)} — ${members.length} member${members.length===1?'':'s'}</td></tr>`;
+      if (!collapsed) members.forEach(a => { html += renderApplicantRow(a); });
+    });
+    (byFamily.get('') || []).forEach(a => { html += renderApplicantRow(a); });
+    return html;
+  }
+
+  function toggleFamilyFolder(fam){
+    if (collapsedFamilyFolders.has(fam)) collapsedFamilyFolders.delete(fam);
+    else collapsedFamilyFolders.add(fam);
+    filterApplicants();
   }
 
   function filterApplicants(){
@@ -848,9 +878,9 @@
     }
 
     if (filter !== 'all'){
-      // A group chip already scopes the list to one family — no need for
-      // the destination/city tree on top, just show its members directly.
-      tb.innerHTML = filtered.map(a => renderApplicantRow(a)).join('');
+      // A group chip scopes the list to one group, but that group can still
+      // contain several distinct families — cluster them into folders.
+      tb.innerHTML = renderFamilyGroupedList(filtered);
       return;
     }
 
