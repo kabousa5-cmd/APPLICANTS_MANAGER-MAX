@@ -443,9 +443,20 @@
           </select>
         </div>
         <div class="fg"><label>Destination</label>
-          <select id="fdest" onkeypress="handleEnter(event,'ff')">
+          <select id="fdest" onkeypress="handleEnter(event,'fc')" onchange="onDestinationChange()">
             <option value="Spain">Spain</option>
             <option value="Portugal">Portugal</option>
+          </select>
+        </div>
+        <div class="fg" id="fg-center"><label>Center</label>
+          <select id="fc" onkeypress="handleEnter(event,'ff')" onchange="onCenterChange()">
+            <option value="">Select…</option>
+            <option>CASABLANCA</option>
+            <option>TETOUAN</option>
+            <option>AGADIR</option>
+            <option>TANGIER</option>
+            <option>NADOR</option>
+            <option>RABAT</option>
           </select>
         </div>
         <div class="fg"><label>First name *</label><input id="ff" oninput="updateMrz()" onkeypress="handleEnter(event,'fl')"></div>
@@ -460,7 +471,7 @@
             <option>FES</option><option>MARRAKECH</option><option>MEKNES</option><option>OUJDA</option>
           </select>
         </div>
-        <div class="fg"><label>Issue place</label>
+        <div class="fg" id="fg-issueplace"><label>Issue place</label>
           <select id="fi" onkeypress="handleEnter(event,'fpid')">
             <option value="">Select…</option>
             <option>CASABLANCA</option><option>NADOR</option><option>RABAT</option>
@@ -470,39 +481,28 @@
         </div>
         <div class="fg"><label>Passport validity date</label><input type="date" id="fpid" onkeypress="handleEnter(event,'fped')"></div>
         <div class="fg"><label>Passport expiry date</label><input type="date" id="fped" onkeypress="handleEnter(event,'fa1')"></div>
-        <div class="fg full"><label>Home address</label><input id="fa1" onkeypress="handleEnter(event,'fc')"></div>
-        <div class="fg"><label>Center</label>
-          <select id="fc" onkeypress="handleEnter(event,'fpc')">
-            <option value="">Select…</option>
-            <option>CASABLANCA</option>
-            <option>TETOUAN</option>
-            <option>AGADIR</option>
-            <option>TANGIER</option>
-            <option>NADOR</option>
-            <option>RABAT</option>
-          </select>
-        </div>
-        <div class="fg"><label>Postal code</label><input id="fpc" onkeypress="handleEnter(event,'fgen')"></div>
-        <div class="fg"><label>Gender</label>
+        <div class="fg full" id="fg-homeaddress"><label>Home address</label><input id="fa1" onkeypress="handleEnter(event,'fpc')"></div>
+        <div class="fg" id="fg-postalcode"><label>Postal code</label><input id="fpc" onkeypress="handleEnter(event,'fgen')"></div>
+        <div class="fg" id="fg-gender"><label>Gender</label>
           <select id="fgen" onkeypress="handleEnter(event,'fms')">
             <option value="">Select…</option>
             <option>Male</option><option>Female</option>
           </select>
         </div>
-        <div class="fg"><label>Marital status</label>
+        <div class="fg" id="fg-maritalstatus"><label>Marital status</label>
           <select id="fms" onkeypress="handleEnter(event,'fpj')">
             <option value="">Select…</option>
             <option>Single</option><option>Married</option><option>Divorced</option><option>Widowed</option>
           </select>
         </div>
-        <div class="fg"><label>Purpose of journey</label>
+        <div class="fg" id="fg-purpose"><label>Purpose of journey</label>
           <select id="fpj" onkeypress="handleEnter(event,'frel')">
             <option value="">Select…</option>
             <option>Tourism</option><option>Business</option><option>Family Visit</option>
             <option>Medical</option><option>Study</option><option>Transit</option><option>Other</option>
           </select>
         </div>
-        <div class="fg"><label>Relationship with primary applicant</label>
+        <div class="fg" id="fg-relationship"><label>Relationship with primary applicant</label>
           <select id="frel" onkeypress="handleEnter(event,'ff')">
             <option value="">Select…</option>
             <option>Father</option><option>Daughter</option>
@@ -555,6 +555,63 @@
     const p = document.getElementById('fb').value;
     const i = document.getElementById('fi');
     if (p && !i.value) i.value = p;
+  }
+
+  // FEATURE: Center → Home address / Postal code auto-fill.
+  // The moment a Center is picked, the Home address is set to the same
+  // name as the Center, and the Postal code is filled in automatically
+  // based on that Center's real Moroccan postal code.
+  const CENTER_POSTAL_CODES = {
+    'CASABLANCA': '20000',
+    'TETOUAN': '93000',
+    'AGADIR': '80000',
+    'TANGIER': '90000',
+    'NADOR': '62000',
+    'RABAT': '10000'
+  };
+  function onCenterChange(){
+    const c = document.getElementById('fc').value;
+    if (!c) return;
+    document.getElementById('fa1').value = c;
+    document.getElementById('fpc').value = CENTER_POSTAL_CODES[c] || '';
+  }
+
+  // Rebuilds the Center dropdown's options for the given destination.
+  // Portugal is restricted to Casablanca / Rabat only. If a desiredValue
+  // is passed (e.g. while loading an existing applicant for editing) it's
+  // preserved even if it falls outside the normally-allowed set, so no
+  // existing data is silently lost.
+  function updateCenterOptions(destination, desiredValue){
+    const sel = document.getElementById('fc');
+    const value = desiredValue !== undefined ? desiredValue : sel.value;
+    const spainCenters = ['CASABLANCA','TETOUAN','AGADIR','TANGIER','NADOR','RABAT'];
+    const portugalCenters = ['CASABLANCA','RABAT'];
+    const opts = (destination === 'Portugal' ? portugalCenters : spainCenters).slice();
+    if (value && !opts.includes(value)) opts.push(value);
+    sel.innerHTML = '<option value="">Select…</option>' + opts.map(o => `<option>${escapeHtml(o)}</option>`).join('');
+    sel.value = value || '';
+  }
+
+  // FEATURE: Portugal applications only need a reduced set of fields —
+  // First name, Last name, Passport number, Date of birth, Place of birth,
+  // Passport validity date, Passport expiry date, and Center (limited to
+  // Casablanca / Rabat). Everything else is hidden (but not cleared —
+  // values already entered, like the auto-filled Home address/Postal
+  // code, are kept silently in case the destination is switched back).
+  function updateFieldVisibility(destination){
+    const isPortugal = destination === 'Portugal';
+    const hideIds = ['fg-issueplace','fg-homeaddress','fg-postalcode','fg-gender','fg-maritalstatus','fg-purpose','fg-relationship'];
+    hideIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = isPortugal ? 'none' : '';
+    });
+  }
+
+  function onDestinationChange(desiredCenterValue){
+    const dest = document.getElementById('fdest').value;
+    const val = desiredCenterValue !== undefined ? desiredCenterValue : document.getElementById('fc').value;
+    updateCenterOptions(dest, val);
+    updateFieldVisibility(dest);
   }
 
   function handleEnter(event, nextFieldId){
@@ -812,6 +869,7 @@
     onAppTypeChange();
     document.getElementById('fdest').value = destination || 'Spain';
     ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph','fgen','fms','fpj','frel','fpid','fped'].forEach(id => document.getElementById(id).value = '');
+    onDestinationChange('');
     document.getElementById('fp').removeAttribute('readonly');
     document.getElementById('fp-lock-note').style.display = 'none';
     resetPhotoSlot(null);
@@ -833,6 +891,7 @@
     document.getElementById('fdest').value = 'Spain';
     onAppTypeChange();
     ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph','fgen','fms','fpj','frel','fpid','fped'].forEach(id => document.getElementById(id).value = '');
+    onDestinationChange('');
     document.getElementById('fp').removeAttribute('readonly');
     document.getElementById('fp-lock-note').style.display = 'none';
     resetPhotoSlot(null);
@@ -854,6 +913,7 @@
     document.getElementById('fat').value = a.ApplicationType || 'Individual';
     document.getElementById('fdest').value = a.Destination || 'Spain';
     onAppTypeChange();
+    onDestinationChange(a.City || '');
     document.getElementById('ff').value = a.FirstName || '';
     document.getElementById('fl').value = a.LastName || '';
     document.getElementById('fp').value = a.PassportNo || '';
@@ -865,7 +925,6 @@
     document.getElementById('fpid').value = a.PassportValidityDate || '';
     document.getElementById('fped').value = a.PassportExpiryDate || '';
     document.getElementById('fa1').value = a.HomeAddressLine1 || '';
-    document.getElementById('fc').value = a.City || '';
     document.getElementById('fpc').value = a.PostalCode || '';
     document.getElementById('fgen').value = a.Gender || '';
     document.getElementById('fms').value = a.MaritalStatus || '';
