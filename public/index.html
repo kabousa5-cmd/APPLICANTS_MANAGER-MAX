@@ -431,7 +431,7 @@
         <input type="file" id="fph" accept="image/*">
         <div id="upload-status" class="upload-status"></div>
         <div class="fg"><label id="group-field-label">Group</label>
-          <input type="text" id="fg" list="fg-list" autocomplete="off" placeholder="Optional" onkeypress="handleEnter(event,'ff')">
+          <input type="text" id="fg" list="fg-list" autocomplete="off" placeholder="Optional" oninput="updateModalTitle()" onkeypress="handleEnter(event,'ff')">
           <datalist id="fg-list"></datalist>
         </div>
       </div>
@@ -903,6 +903,20 @@
       fg.placeholder = 'Optional';
       addFamilyBtn.style.display = 'none';
     }
+    updateModalTitle();
+  }
+
+  // FEATURE: Live family name in the modal header — as soon as "Family" is
+  // picked and a name is typed in the Family name field, the modal title
+  // (top-left of the form) updates to show it, e.g. "Add applicant — Bouchaib
+  // Family" instead of a generic title. Falls back to the plain title for
+  // Individual applications or while the family name field is still empty.
+  function updateModalTitle(){
+    const at = document.getElementById('fat').value;
+    const titleEl = document.getElementById('modal-title');
+    const base = editIdx >= 0 ? 'Edit applicant' : (at === 'Family' ? 'Add family member' : 'Add applicant');
+    const famName = document.getElementById('fg').value.trim();
+    titleEl.textContent = (at === 'Family' && famName) ? `${base} — ${famName}` : base;
   }
 
   // Opens a fresh, blank applicant form already filed under the given
