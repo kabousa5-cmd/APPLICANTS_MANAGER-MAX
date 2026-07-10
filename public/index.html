@@ -449,7 +449,7 @@
           </select>
         </div>
         <div class="fg" id="fg-center"><label>Center</label>
-          <select id="fc" onkeypress="handleEnter(event,'ff')" onchange="onCenterChange()">
+          <select id="fc" onkeypress="handleEnter(event,'fcity')" onchange="onCenterChange()">
             <option value="">Select…</option>
             <option>CASABLANCA</option>
             <option>TETOUAN</option>
@@ -459,6 +459,7 @@
             <option>RABAT</option>
           </select>
         </div>
+        <div class="fg" id="fg-city"><label>City</label><input id="fcity" onkeypress="handleEnter(event,'ff')"></div>
         <div class="fg"><label>First name *</label><input id="ff" oninput="updateMrz()" onkeypress="handleEnter(event,'fl')"></div>
         <div class="fg"><label>Last name *</label><input id="fl" oninput="updateMrz()" onkeypress="handleEnter(event,'fp')"></div>
         <div class="fg"><label>Passport number *</label><input id="fp" class="mono" oninput="updateMrz()" onkeypress="handleEnter(event,'fd')"><div class="lock-note" id="fp-lock-note" style="display:none;">🔒 Locked while editing — delete and re-add to change the passport number</div></div>
@@ -496,10 +497,16 @@
           </select>
         </div>
         <div class="fg" id="fg-purpose"><label>Purpose of journey</label>
-          <select id="fpj" onkeypress="handleEnter(event,'frel')">
+          <select id="fpj" onkeypress="handleEnter(event,'fmemb')">
             <option value="">Select…</option>
             <option>Tourism</option><option>Business</option><option>Family Visit</option>
             <option>Medical</option><option>Study</option><option>Transit</option><option>Other</option>
+          </select>
+        </div>
+        <div class="fg" id="fg-memberstate"><label>Member state destination</label>
+          <select id="fmemb" onkeypress="handleEnter(event,'frel')">
+            <option value="Spain">Spain</option>
+            <option value="Portugal">Portugal</option>
           </select>
         </div>
         <div class="fg" id="fg-relationship"><label>Relationship with primary applicant</label>
@@ -606,6 +613,7 @@
     if (!c) return;
     document.getElementById('fa1').value = c;
     document.getElementById('fpc').value = CENTER_POSTAL_CODES[c] || '';
+    document.getElementById('fcity').value = c;
     setSelectValueSafe('fi', c);
   }
 
@@ -628,16 +636,25 @@
   // FEATURE: Portugal applications only need a reduced set of fields —
   // First name, Last name, Passport number, Date of birth, Place of birth,
   // Passport validity date, Passport expiry date, and Center (limited to
-  // Casablanca / Rabat). Everything else is hidden (but not cleared —
-  // values already entered, like the auto-filled Home address/Postal
-  // code, are kept silently in case the destination is switched back).
+  // Casablanca / Rabat), PLUS Gender / Marital status / Purpose of journey /
+  // Member state destination, which are shown for Portugal too. Everything
+  // else is hidden (but not cleared — values already entered, like the
+  // auto-filled Home address/Postal code, are kept silently in case the
+  // destination is switched back).
   function updateFieldVisibility(destination){
     const isPortugal = destination === 'Portugal';
-    const hideIds = ['fg-issueplace','fg-homeaddress','fg-postalcode','fg-gender','fg-maritalstatus','fg-purpose','fg-relationship'];
+    const hideIds = ['fg-issueplace','fg-homeaddress','fg-city','fg-postalcode','fg-relationship'];
     hideIds.forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = isPortugal ? 'none' : '';
     });
+  }
+
+  // FEATURE: Member state destination always mirrors the chosen Destination
+  // (Spain → Spain, Portugal → Portugal) so it never drifts out of sync.
+  function syncMemberState(destination){
+    const el = document.getElementById('fmemb');
+    if (el) el.value = destination === 'Portugal' ? 'Portugal' : 'Spain';
   }
 
   function onDestinationChange(desiredCenterValue){
@@ -645,6 +662,7 @@
     const val = desiredCenterValue !== undefined ? desiredCenterValue : document.getElementById('fc').value;
     updateCenterOptions(dest, val);
     updateFieldVisibility(dest);
+    syncMemberState(dest);
   }
 
   function handleEnter(event, nextFieldId){
@@ -901,7 +919,7 @@
     document.getElementById('fat').value = 'Family';
     onAppTypeChange();
     document.getElementById('fdest').value = destination || 'Spain';
-    ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph','fgen','fms','fpj','frel','fpid','fped'].forEach(id => document.getElementById(id).value = '');
+    ['ff','fl','fp','fd','fb','fi','fa1','fc','fcity','fpc','fph','fgen','fms','fpj','frel','fpid','fped'].forEach(id => document.getElementById(id).value = '');
     onDestinationChange('');
     document.getElementById('fpj').value = 'Tourism';
     document.getElementById('frel').value = 'Father';
@@ -925,7 +943,7 @@
     document.getElementById('fat').value = 'Individual';
     document.getElementById('fdest').value = 'Spain';
     onAppTypeChange();
-    ['ff','fl','fp','fd','fb','fi','fa1','fc','fpc','fph','fgen','fms','fpj','frel','fpid','fped'].forEach(id => document.getElementById(id).value = '');
+    ['ff','fl','fp','fd','fb','fi','fa1','fc','fcity','fpc','fph','fgen','fms','fpj','frel','fpid','fped'].forEach(id => document.getElementById(id).value = '');
     onDestinationChange('');
     document.getElementById('fpj').value = 'Tourism';
     document.getElementById('frel').value = 'Father';
@@ -950,7 +968,7 @@
     document.getElementById('fat').value = a.ApplicationType || 'Individual';
     document.getElementById('fdest').value = a.Destination || 'Spain';
     onAppTypeChange();
-    onDestinationChange(a.City || '');
+    onDestinationChange(a.Center || a.City || '');
     document.getElementById('ff').value = a.FirstName || '';
     document.getElementById('fl').value = a.LastName || '';
     document.getElementById('fp').value = a.PassportNo || '';
@@ -962,10 +980,12 @@
     document.getElementById('fpid').value = a.PassportValidityDate || '';
     document.getElementById('fped').value = a.PassportExpiryDate || '';
     document.getElementById('fa1').value = a.HomeAddressLine1 || '';
+    document.getElementById('fcity').value = a.City || a.Center || '';
     document.getElementById('fpc').value = a.PostalCode || '';
     document.getElementById('fgen').value = a.Gender || '';
     document.getElementById('fms').value = a.MaritalStatus || '';
     document.getElementById('fpj').value = a.PurposeOfJourney || '';
+    document.getElementById('fmemb').value = a.MemberStateDestination || a.Destination || 'Spain';
     document.getElementById('frel').value = a.RelationshipWithPrimaryApplicant || '';
     document.getElementById('fph').value = '';
     resetPhotoSlot(a.photo);
@@ -1057,11 +1077,13 @@
       PassportValidityDate: document.getElementById('fpid').value,
       PassportExpiryDate: document.getElementById('fped').value,
       HomeAddressLine1: document.getElementById('fa1').value.trim(),
-      City: document.getElementById('fc').value.trim(),
+      Center: document.getElementById('fc').value,
+      City: document.getElementById('fcity').value.trim(),
       PostalCode: document.getElementById('fpc').value.trim(),
       Gender: document.getElementById('fgen').value,
       MaritalStatus: document.getElementById('fms').value,
       PurposeOfJourney: document.getElementById('fpj').value,
+      MemberStateDestination: document.getElementById('fmemb').value,
       RelationshipWithPrimaryApplicant: document.getElementById('frel').value.trim(),
       photo: currentPhotoBase64,
       _updatedAt: Date.now()
