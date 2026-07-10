@@ -14,6 +14,15 @@ let sharedData = {
   forceSyncTimestamp: 0
 };
 
+// ===== Profiles store (formerly Firebase Realtime DB) =====
+// Used by the Tampermonkey userscript. Keyed by a generated id, same shape
+// the script previously got from Firebase: { id1: {...}, id2: {...} }
+let profilesData = {};
+
+function generateProfileId() {
+  return 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+}
+
 let currentCommand = {
   location: '',
   visaType: '',
@@ -178,6 +187,40 @@ app.get('/api/broadcast', (req, res) => {
   res.json({ success: true, ...currentCommand });
 });
 
+// ===== Profiles endpoints (replaces Firebase for the Tampermonkey userscript) =====
+
+// GET all profiles -> { id: {...}, id: {...} } (empty object if none)
+app.get('/api/profiles', (req, res) => {
+  res.json(profilesData);
+});
+
+// POST a new profile -> server generates the id (like Firebase push)
+app.post('/api/profiles', (req, res) => {
+  const id = generateProfileId();
+  profilesData[id] = { ...req.body };
+  res.json({ success: true, id, name: id });
+});
+
+// PUT (create-or-replace) a profile at a specific id
+app.put('/api/profiles/:id', (req, res) => {
+  const { id } = req.params;
+  profilesData[id] = { ...req.body };
+  res.json({ success: true, id });
+});
+
+// DELETE a single profile
+app.delete('/api/profiles/:id', (req, res) => {
+  const { id } = req.params;
+  delete profilesData[id];
+  res.json({ success: true, id });
+});
+
+// DELETE all profiles
+app.delete('/api/profiles', (req, res) => {
+  profilesData = {};
+  res.json({ success: true });
+});
+
 const PORT = parseInt(process.env.PORT || '3000', 10);
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 BLS Server on port ${PORT}`);
@@ -185,4 +228,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('🗑️  Atomic deletes: single applicant + group endpoints');
   console.log('🔔 Force sync: POST /api/force-sync to push to all extensions');
   console.log('🔄 Dashboard: auto-refreshes every 10 seconds');
+  console.log('📇 Profiles API: /api/profiles (Firebase replacement for the userscript)');
 });
