@@ -479,7 +479,7 @@
             <option>FES</option><option>MARRAKECH</option><option>MEKNES</option><option>OUJDA</option>
           </select>
         </div>
-        <div class="fg"><label>Passport validity date</label><input type="date" id="fpid" onkeypress="handleEnter(event,'fped')"></div>
+        <div class="fg"><label>Passport validity date</label><input type="date" id="fpid" onchange="calcPassportExpiry()" onkeypress="handleEnter(event,'fped')"></div>
         <div class="fg"><label>Passport expiry date</label><input type="date" id="fped" onkeypress="handleEnter(event,'fa1')"></div>
         <div class="fg full" id="fg-homeaddress"><label>Home address</label><input id="fa1" onkeypress="handleEnter(event,'fpc')"></div>
         <div class="fg" id="fg-postalcode"><label>Postal code</label><input id="fpc" onkeypress="handleEnter(event,'fgen')"></div>
@@ -555,6 +555,21 @@
     const p = document.getElementById('fb').value;
     const i = document.getElementById('fi');
     if (p && !i.value) i.value = p;
+  }
+
+  // FEATURE: Passport validity date → Passport expiry date auto-fill.
+  // The moment a validity date is entered (e.g. 01/01/2025), the expiry
+  // date is set 5 years later automatically (e.g. 01/01/2030).
+  function calcPassportExpiry(){
+    const validity = document.getElementById('fpid').value;
+    if (!validity) return;
+    const d = new Date(validity + 'T00:00:00');
+    if (isNaN(d.getTime())) return;
+    d.setFullYear(d.getFullYear() + 5);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    document.getElementById('fped').value = `${yyyy}-${mm}-${dd}`;
   }
 
   // FEATURE: Center → Home address / Postal code auto-fill.
