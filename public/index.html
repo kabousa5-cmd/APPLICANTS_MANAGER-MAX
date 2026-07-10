@@ -431,7 +431,7 @@
         <input type="file" id="fph" accept="image/*">
         <div id="upload-status" class="upload-status"></div>
         <div class="fg"><label id="group-field-label">Group</label>
-          <input type="text" id="fg" list="fg-list" autocomplete="off" placeholder="Optional" oninput="syncFamilyName('fg')" onkeypress="handleEnter(event,'ff')">
+          <input type="text" id="fg" list="fg-list" autocomplete="off" placeholder="Optional" onkeypress="handleEnter(event,'ff')">
           <datalist id="fg-list"></datalist>
         </div>
       </div>
@@ -443,7 +443,8 @@
           </select>
         </div>
         <div class="fg" id="fg-familyname-inline" style="display:none;"><label>Family name</label>
-          <input type="text" id="fg2" list="fg-list" autocomplete="off" placeholder="e.g. Bouchaib Family" oninput="syncFamilyName('fg2')" onkeypress="handleEnter(event,'fdest')">
+          <input type="text" id="fg2" list="fname-list" autocomplete="off" placeholder="e.g. Bouchaib Family" oninput="updateModalTitle()" onkeypress="handleEnter(event,'fdest')">
+          <datalist id="fname-list"></datalist>
         </div>
         <div class="fg"><label>Destination</label>
           <select id="fdest" onkeypress="handleEnter(event,'fc')" onchange="onDestinationChange()">
@@ -699,6 +700,12 @@
     const fgList = document.getElementById('fg-list');
     fgList.innerHTML = groups.map(g => `<option value="${g}">`).join('');
 
+    // Family name suggestions are drawn from names already used on file,
+    // independent of the Group list above.
+    const fnameList = document.getElementById('fname-list');
+    const uniqueFamilyNames = [...new Set(apps.map(a => a.FamilyName).filter(Boolean))];
+    fnameList.innerHTML = uniqueFamilyNames.map(n => `<option value="${n}">`).join('');
+
     const gf = document.getElementById('groups-filter');
     gf.innerHTML = '';
     const all = document.createElement('div');
@@ -761,7 +768,7 @@
         <td class="mono">${a.PassportNo||''}</td>
         <td>${a.DateOfBirth || '<span class="dash">—</span>'}</td>
         <td>${a.PlaceOfBirth || '<span class="dash">—</span>'}</td>
-        <td>${a.group ? `<span class="group-tag">${a.group}</span>` : '<span class="dash">—</span>'} ${a.ApplicationType === 'Family' ? '<span class="group-tag">Family</span>' : ''} ${a.Destination ? `<span class="group-tag">${a.Destination}</span>` : ''}</td>
+        <td>${a.group ? `<span class="group-tag">${a.group}</span>` : '<span class="dash">—</span>'} ${a.ApplicationType === 'Family' ? '<span class="group-tag">Family</span>' : ''} ${a.FamilyName ? `<span class="group-tag">👪 ${a.FamilyName}</span>` : ''} ${a.Destination ? `<span class="group-tag">${a.Destination}</span>` : ''}</td>
         <td><div class="row-actions">
           ${a.photo ? `<button class="icon-btn" onclick="downloadPhoto(${idx})">Photo</button>` : ''}
           <button class="icon-btn" onclick="edit(${idx})">Edit</button>
@@ -893,57 +900,37 @@
   // afterward will be filed under.
   function onAppTypeChange(){
     const at = document.getElementById('fat').value;
-    const fg = document.getElementById('fg');
     const fg2 = document.getElementById('fg2');
-    const label = document.getElementById('group-field-label');
     const addFamilyBtn = document.getElementById('add-family-btn');
     const inlineWrap = document.getElementById('fg-familyname-inline');
     if (at === 'Family'){
-      label.textContent = 'Family name';
-      fg.placeholder = 'e.g. Bouchaib Family';
       addFamilyBtn.style.display = '';
       inlineWrap.style.display = '';
-      fg2.value = fg.value;
-      if (!fg.value) fg2.focus();
+      if (!fg2.value) fg2.focus();
     } else {
-      label.textContent = 'Group';
-      fg.placeholder = 'Optional';
       addFamilyBtn.style.display = 'none';
       inlineWrap.style.display = 'none';
     }
     updateModalTitle();
   }
 
-  // FEATURE: Two-way sync between the two family-name inputs — the small
-  // one under the photo (#fg, the actual value that gets saved) and the
-  // one shown inline right next to "Application type" (#fg2, added so the
-  // name field is visible right where "Family" is picked, not just off to
-  // the side). Typing in either one updates the other and the modal title.
-  function syncFamilyName(source){
-    const fg = document.getElementById('fg');
-    const fg2 = document.getElementById('fg2');
-    if (source === 'fg2') fg.value = fg2.value;
-    else fg2.value = fg.value;
-    updateModalTitle();
-  }
-
-  // FEATURE: Live family name in the modal header — as soon as "Family" is
-  // picked and a name is typed in the Family name field, the modal title
-  // (top-left of the form) updates to show it, e.g. "Add applicant — Bouchaib
-  // Family" instead of a generic title. Falls back to the plain title for
-  // Individual applications or while the family name field is still empty.
+  // FEATURE: Family name is its OWN field — independent from Group. Group
+  // keeps doing what it always did (filtering, chips, exports, the
+  // extension's family-folder view). Family name (#fg2) is a separate,
+  // purely descriptive label shown only when Application type is "Family";
+  // it does NOT get copied into Group and Group does NOT get copied into it.
   function updateModalTitle(){
     const at = document.getElementById('fat').value;
     const titleEl = document.getElementById('modal-title');
     const base = editIdx >= 0 ? 'Edit applicant' : (at === 'Family' ? 'Add family member' : 'Add applicant');
-    const famName = document.getElementById('fg').value.trim();
+    const famName = document.getElementById('fg2').value.trim();
     titleEl.textContent = (at === 'Family' && famName) ? `${base} — ${famName}` : base;
   }
 
   // Opens a fresh, blank applicant form already filed under the given
   // family group, so the next family member is entered without having
   // to re-type the family name or re-pick the application type.
-  function addFamilyMember(groupName, destination){
+  function addFamilyMember(groupName, destination, familyName){
     isModalOpen = true;
     editIdx = -1;
     originalPassportNo = null;
@@ -951,6 +938,7 @@
     document.getElementById('modal-title').textContent = 'Add family member';
     if (groupName) ensureGroupOption(groupName);
     document.getElementById('fg').value = groupName || '';
+    document.getElementById('fg2').value = familyName || '';
     document.getElementById('fat').value = 'Family';
     onAppTypeChange();
     document.getElementById('fdest').value = destination || 'Spain';
@@ -975,6 +963,7 @@
     currentPhotoBase64 = null;
     document.getElementById('modal-title').textContent = 'Add applicant';
     document.getElementById('fg').value = filter === 'all' ? '' : filter;
+    document.getElementById('fg2').value = '';
     document.getElementById('fat').value = 'Individual';
     document.getElementById('fdest').value = 'Spain';
     onAppTypeChange();
@@ -1000,6 +989,7 @@
     const a = apps[i];
     document.getElementById('modal-title').textContent = 'Edit applicant';
     document.getElementById('fg').value = a.group || '';
+    document.getElementById('fg2').value = a.FamilyName || '';
     document.getElementById('fat').value = a.ApplicationType || 'Individual';
     document.getElementById('fdest').value = a.Destination || 'Spain';
     onAppTypeChange();
@@ -1101,6 +1091,7 @@
     // (defense in depth) — an edit must never change the record's identity.
     const record = {
       group: document.getElementById('fg').value.trim(),
+      FamilyName: document.getElementById('fat').value === 'Family' ? document.getElementById('fg2').value.trim() : '',
       ApplicationType: document.getElementById('fat').value,
       Destination: document.getElementById('fdest').value,
       FirstName: firstVal,
@@ -1160,7 +1151,7 @@
       // click itself was the explicit request.
       if (continueFamily){
         stamp('Saved');
-        addFamilyMember(record.group, record.Destination);
+        addFamilyMember(record.group, record.Destination, record.FamilyName);
         return;
       }
 
@@ -1169,10 +1160,10 @@
       // re-entering the family name for every member.
       if (record.ApplicationType === 'Family' && editIdx < 0){
         stamp('Saved');
-        const groupLabel = record.group ? `"${record.group}"` : 'this family';
-        const addAnother = confirm(`Saved. Add another family member to ${groupLabel}?`);
+        const groupLabel = record.FamilyName || record.group || 'this family';
+        const addAnother = confirm(`Saved. Add another family member to "${groupLabel}"?`);
         if (addAnother){
-          addFamilyMember(record.group, record.Destination);
+          addFamilyMember(record.group, record.Destination, record.FamilyName);
           return;
         }
       } else {
