@@ -471,7 +471,17 @@
         <div class="fg"><label>Passport validity date</label><input type="date" id="fpid" onkeypress="handleEnter(event,'fped')"></div>
         <div class="fg"><label>Passport expiry date</label><input type="date" id="fped" onkeypress="handleEnter(event,'fa1')"></div>
         <div class="fg full"><label>Home address</label><input id="fa1" onkeypress="handleEnter(event,'fc')"></div>
-        <div class="fg"><label>City</label><input id="fc" onkeypress="handleEnter(event,'fpc')"></div>
+        <div class="fg"><label>Center</label>
+          <select id="fc" onkeypress="handleEnter(event,'fpc')">
+            <option value="">Select…</option>
+            <option>CASABLANCA</option>
+            <option>TETOUAN</option>
+            <option>AGADIR</option>
+            <option>TANGIER</option>
+            <option>NADOR</option>
+            <option>RABAT</option>
+          </select>
+        </div>
         <div class="fg"><label>Postal code</label><input id="fpc" onkeypress="handleEnter(event,'fgen')"></div>
         <div class="fg"><label>Gender</label>
           <select id="fgen" onkeypress="handleEnter(event,'fms')">
