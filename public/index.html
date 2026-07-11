@@ -293,6 +293,10 @@
     font-size:12px;letter-spacing:0.4px;padding:8px 16px 8px 48px;border-top:1px solid rgba(255,255,255,0.08);
   }
   .group-header-row:hover td{background:#46335a;}
+  .group-header-row .family-edit{
+    margin-left:8px;opacity:0.6;cursor:pointer;padding:2px 4px;border-radius:50%;
+  }
+  .group-header-row .family-edit:hover{opacity:1;background:rgba(255,255,255,0.15);}
   .group-header-arrow{display:inline-block;width:16px;color:var(--brass-light);}
   .dash{color:var(--ink-faint);}
   .expiry-badge{
@@ -389,6 +393,16 @@
     animation:stampIn .35s cubic-bezier(.2,1.4,.4,1) forwards, stampOut .3s ease 2.4s forwards;
   }
   .stamp.error{border-color:var(--ink-soft);color:var(--ink-soft);}
+  .stamp.with-undo{
+    animation:stampIn .35s cubic-bezier(.2,1.4,.4,1) forwards, stampOut .3s ease 5.4s forwards;
+    display:flex;align-items:center;gap:14px;
+  }
+  .stamp-undo{
+    background:transparent;border:2px solid currentColor;color:inherit;
+    font-family:inherit;font-weight:700;font-size:11px;letter-spacing:1px;
+    text-transform:uppercase;padding:4px 10px;cursor:pointer;border-radius:2px;
+  }
+  .stamp-undo:hover{background:rgba(0,0,0,0.08);}
   @keyframes stampIn{to{transform:rotate(-4deg) scale(1);opacity:1;}}
   @keyframes stampOut{to{opacity:0;transform:rotate(-4deg) scale(0.96) translateY(6px);}}
 
@@ -442,13 +456,14 @@
 
   <div class="toolbar">
     <div class="search-box">
-      <input type="text" id="search" placeholder="Search by name or passport number" oninput="filterApplicants()">
+      <input type="text" id="search" placeholder="Search by name, passport number, group, or family" oninput="filterApplicants()">
     </div>
     <button class="btn btn-seal" onclick="showAddModal()">+ Add applicant</button>
     <button class="btn btn-outline" onclick="showAddGroupModal()">+ New group</button>
     <button class="btn btn-outline" onclick="importData()">Import JSON</button>
     <button class="btn btn-outline" onclick="exportData()">Export JSON</button>
     <button class="btn btn-outline" onclick="exportByFolder()">Export by folder (Spain / Portugal)</button>
+    <button class="btn btn-outline" onclick="exportPDF()">Export PDF</button>
   </div>
 
   <div class="chips" id="groups-filter"></div>
@@ -1042,7 +1057,7 @@
             const members = byFamily.get(fam);
             const famExpanded = expandedGroups.has(fam);
             const fArrow = famExpanded ? '▾' : '▸';
-            html += `<tr class="group-header-row" onclick="toggleGroup('${escapeJs(fam)}')"><td colspan="8"><span class="group-header-arrow">${fArrow}</span>👪 ${escapeHtml(fam)} — ${members.length} member${members.length===1?'':'s'}</td></tr>`;
+            html += `<tr class="group-header-row" onclick="toggleGroup('${escapeJs(fam)}')"><td colspan="8"><span class="group-header-arrow">${fArrow}</span>👪 ${escapeHtml(fam)} — ${members.length} member${members.length===1?'':'s'}<span class="family-edit" title="Rename family" onclick="event.stopPropagation();renameFamilyName('${escapeJs(fam)}')">✎</span></td></tr>`;
             if (famExpanded) members.forEach(a => { html += renderApplicantRow(a); });
           });
 
@@ -1078,7 +1093,7 @@
         const members = byFamily.get(fam);
         const collapsed = collapsedFamilyFolders.has(fam);
         const fArrow = collapsed ? '▸' : '▾';
-        html += `<tr class="group-header-row" onclick="toggleFamilyFolder('${escapeJs(fam)}')"><td colspan="8"><span class="group-header-arrow">${fArrow}</span>👪 ${escapeHtml(fam)} — ${members.length} member${members.length===1?'':'s'}</td></tr>`;
+        html += `<tr class="group-header-row" onclick="toggleFamilyFolder('${escapeJs(fam)}')"><td colspan="8"><span class="group-header-arrow">${fArrow}</span>👪 ${escapeHtml(fam)} — ${members.length} member${members.length===1?'':'s'}<span class="family-edit" title="Rename family" onclick="event.stopPropagation();renameFamilyName('${escapeJs(fam)}')">✎</span></td></tr>`;
         if (!collapsed) members.forEach(a => { html += renderApplicantRow(a); });
       });
       // Family-type members that don't have a Family name yet — shown directly, still inside the Family section
@@ -1093,21 +1108,54 @@
     return html;
   }
 
+  // FEATURE: Rename a family (the FamilyName field) across all its members
+  // in one go. Unlike Group, FamilyName isn't tracked as its own list on
+  // the server — it's just a field on each applicant — so renaming it is
+  // simpler than renameGroup: update the field locally, bump _updatedAt so
+  // the change wins on sync, and push. The family-name suggestion list is
+  // derived fresh from applicants after every sync, so nothing is left
+  // stale.
+  async function renameFamilyName(oldFam){
+    const input = prompt(`Rename family "${oldFam}" to:`, oldFam);
+    if (input === null) return;
+    const newFam = input.trim();
+    if (!newFam){ stamp('Family name cannot be empty', 'error'); return; }
+    if (newFam === oldFam) return;
+    const existingMembers = apps.filter(a => a.FamilyName === newFam).length;
+    if (existingMembers && !confirm(`A family named "${newFam}" already exists (${existingMembers} member(s)). Merge "${oldFam}" into it?`)) return;
+    const now = Date.now();
+    apps.forEach(a => { if (a.FamilyName === oldFam){ a.FamilyName = newFam; a._updatedAt = now; } });
+    if (collapsedFamilyFolders.has(oldFam)){ collapsedFamilyFolders.delete(oldFam); collapsedFamilyFolders.add(newFam); }
+    if (expandedGroups.has(oldFam)){ expandedGroups.delete(oldFam); expandedGroups.add(newFam); }
+    try{
+      await sync();
+      stamp(existingMembers ? `Merged into family "${newFam}"` : 'Family renamed');
+    }catch(e){
+      stamp('Rename failed', 'error');
+    }
+  }
+
   function toggleFamilyFolder(fam){
     if (collapsedFamilyFolders.has(fam)) collapsedFamilyFolders.delete(fam);
     else collapsedFamilyFolders.add(fam);
     filterApplicants();
   }
 
-  function filterApplicants(){
+  function getFilteredApplicants(){
     const q = document.getElementById('search').value.toLowerCase();
-    let filtered = apps.filter(a => {
+    return apps.filter(a => {
       if (filter !== 'all' && a.group !== filter) return false;
       if (!q) return true;
       return (a.FirstName||'').toLowerCase().includes(q) ||
              (a.LastName||'').toLowerCase().includes(q) ||
-             (a.PassportNo||'').toLowerCase().includes(q);
+             (a.PassportNo||'').toLowerCase().includes(q) ||
+             (a.group||'').toLowerCase().includes(q) ||
+             (a.FamilyName||'').toLowerCase().includes(q);
     });
+  }
+
+  function filterApplicants(){
+    let filtered = getFilteredApplicants();
 
     const tb = document.getElementById('tbody');
     if (!filtered.length){
@@ -1521,29 +1569,63 @@
     if (!skipConfirm && !confirm('Delete this applicant?')) return;
     const passportNo = apps[i].PassportNo;
     if (!passportNo){ stamp('No passport number on record', 'error'); return; }
+    const deletedRecord = { ...apps[i] };
     try{
       const r = await fetch(API + '/api/applicants/' + encodeURIComponent(passportNo), { method: 'DELETE' });
       if (!r.ok) throw new Error('Server error');
       const d = await r.json();
       apps = d.data.applicants; groups = d.data.groups;
       updateUI();
-      stamp('Deleted');
+      stamp('Deleted', 'success', () => restoreApplicant(deletedRecord));
     }catch(e){ stamp('Delete failed', 'error'); }
+  }
+
+  // FEATURE: Undo for deletions. Each delete path keeps a copy of what it
+  // removed and hands it to stamp()'s Undo button. Restoring goes through
+  // PUT (which creates the record again if it's missing — see server.js)
+  // for a single applicant, or a full sync for bulk restores, so undoing
+  // can never create a duplicate even if something else changed meanwhile.
+  async function restoreApplicant(record){
+    try{
+      const r = await fetch(API + '/api/applicants/' + encodeURIComponent(record.PassportNo), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...record, _updatedAt: Date.now() })
+      });
+      if (!r.ok) throw new Error('Restore failed');
+      const d = await r.json();
+      apps = d.data.applicants; groups = d.data.groups;
+      updateUI();
+      stamp('Restored');
+    }catch(e){ stamp('Restore failed', 'error'); }
   }
 
   async function deleteAll(skipConfirm){
     if (!skipConfirm && !confirm('Delete ALL applicants? This cannot be undone.')) return;
+    const savedApps = apps.map(a => ({ ...a }));
+    const savedGroups = groups.slice();
     try{
       await fetch(API + '/api/applicants', { method: 'DELETE' });
       apps = []; groups = []; filter = 'all';
       updateUI();
-      stamp('Manifest cleared');
+      stamp('Manifest cleared', 'success', () => restoreAll(savedApps, savedGroups));
     }catch(e){ stamp('Delete failed', 'error'); }
+  }
+
+  async function restoreAll(savedApps, savedGroups){
+    if (!savedApps.length && !savedGroups.length) return;
+    apps = savedApps.map(a => ({ ...a, _updatedAt: Date.now() }));
+    groups = savedGroups.slice();
+    try{
+      await sync();
+      stamp('Restored');
+    }catch(e){ stamp('Restore failed', 'error'); }
   }
 
   async function deleteGroup(groupName, skipConfirm){
     const count = apps.filter(a => a.group === groupName).length;
     if (!skipConfirm && !confirm(`Delete group "${groupName}" and ${count} applicant(s)?`)) return;
+    const savedMembers = apps.filter(a => a.group === groupName).map(a => ({ ...a }));
     try{
       const r = await fetch(API + '/api/applicants/group/' + encodeURIComponent(groupName), { method: 'DELETE' });
       if (!r.ok) throw new Error('Server error');
@@ -1551,8 +1633,20 @@
       apps = d.data.applicants; groups = d.data.groups;
       if (filter === groupName) filter = 'all';
       updateUI();
-      stamp('Group deleted');
+      stamp('Group deleted', 'success', () => restoreGroup(groupName, savedMembers));
     }catch(e){ stamp('Delete failed', 'error'); }
+  }
+
+  async function restoreGroup(groupName, savedMembers){
+    if (!savedMembers.length) return;
+    const now = Date.now();
+    savedMembers.forEach(a => { a._updatedAt = now; });
+    apps = apps.concat(savedMembers);
+    if (!groups.includes(groupName)) groups.push(groupName);
+    try{
+      await sync();
+      stamp('Group restored');
+    }catch(e){ stamp('Restore failed', 'error'); }
   }
 
   function showAddGroupModal(){
@@ -1633,6 +1727,58 @@
     l.click();
     URL.revokeObjectURL(u);
     stamp('Exported');
+  }
+
+  // FEATURE: Export PDF — builds a clean, print-friendly table of whatever
+  // is currently visible (respects the active search/group filter, same as
+  // the on-screen list) in a new tab and opens the browser's print dialog,
+  // where "Save as PDF" is one of the standard destinations. No extra PDF
+  // library needed, and the result always matches what's on screen.
+  function exportPDF(){
+    const list = getFilteredApplicants();
+    if (!list.length){ stamp('No applicants to export', 'error'); return; }
+
+    const scopeLabel = filter === 'all' ? 'All applicants' : `Group: ${filter}`;
+    const rows = list.map((a, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(a.FirstName || '')} ${escapeHtml(a.LastName || '')}</td>
+        <td>${escapeHtml(a.PassportNo || '')}</td>
+        <td>${escapeHtml(a.DateOfBirth || '')}</td>
+        <td>${escapeHtml(a.PlaceOfBirth || '')}</td>
+        <td>${escapeHtml(a.Destination || '')}</td>
+        <td>${escapeHtml(a.group || '')}</td>
+        <td>${escapeHtml(a.FamilyName || '')}</td>
+      </tr>`).join('');
+
+    const html = `<!DOCTYPE html>
+      <html><head><meta charset="utf-8"><title>Manifest export</title>
+      <style>
+        body{font-family:Arial,Helvetica,sans-serif;color:#161B2C;margin:32px;}
+        h1{font-size:18px;margin:0 0 2px;}
+        .meta{font-size:12px;color:#666;margin-bottom:18px;}
+        table{width:100%;border-collapse:collapse;font-size:12px;}
+        th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;}
+        th{background:#1B2440;color:#fff;text-transform:uppercase;font-size:10.5px;letter-spacing:0.4px;}
+        tr:nth-child(even){background:#f7f7f7;}
+        @media print{ body{margin:12mm;} }
+      </style></head>
+      <body>
+        <h1>Applicant manifest</h1>
+        <div class="meta">${escapeHtml(scopeLabel)} — ${list.length} record${list.length===1?'':'s'} — generated ${new Date().toLocaleString()}</div>
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th>Passport No.</th><th>Date of birth</th><th>Place of birth</th><th>Destination</th><th>Group</th><th>Family</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </body></html>`;
+
+    const win = window.open('', '_blank');
+    if (!win){ stamp('Pop-up blocked — allow pop-ups to export PDF', 'error'); return; }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
   }
 
   // Makes a string safe to use as a folder/file name (strips path separators
@@ -1724,12 +1870,23 @@
     inp.click();
   }
 
-  function stamp(msg, type = 'success'){
+  function stamp(msg, type = 'success', undo){
     const t = document.createElement('div');
-    t.className = 'stamp' + (type === 'error' ? ' error' : '');
-    t.textContent = msg;
+    t.className = 'stamp' + (type === 'error' ? ' error' : '') + (undo ? ' with-undo' : '');
+    const text = document.createElement('span');
+    text.textContent = msg;
+    t.appendChild(text);
+    let timer;
+    if (undo){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'stamp-undo';
+      btn.textContent = 'Undo';
+      btn.onclick = () => { clearTimeout(timer); t.remove(); undo(); };
+      t.appendChild(btn);
+    }
     document.body.appendChild(t);
-    setTimeout(() => t.remove(), 2800);
+    timer = setTimeout(() => t.remove(), undo ? 5800 : 2800);
   }
 
   // FEATURE: Draggable Add Applicant window — click-and-drag the header
