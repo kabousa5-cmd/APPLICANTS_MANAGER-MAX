@@ -1004,6 +1004,7 @@
         <td><div class="row-actions">
           ${a.photo ? `<button class="icon-btn" onclick="downloadPhoto(${idx})">Photo</button>` : ''}
           <button class="icon-btn" onclick="edit(${idx})">Edit</button>
+          <button class="icon-btn" onclick="cloneApplicant(${idx})" title="Add another family member with the same address/destination/group">Clone</button>
         </div></td>
       </tr>`;
   }
@@ -1287,6 +1288,48 @@
     onDestinationChange('');
     document.getElementById('fpj').value = 'Tourism';
     document.getElementById('frel').value = 'Father';
+    document.getElementById('fp').removeAttribute('readonly');
+    document.getElementById('fp-lock-note').style.display = 'none';
+    resetPhotoSlot(null);
+    document.getElementById('upload-status').textContent = '';
+    document.getElementById('save-btn').disabled = false;
+    updateMrz();
+    onDateOfBirthChange();
+    document.getElementById('modal').classList.add('active');
+    setTimeout(() => document.getElementById('ff').focus(), 100);
+  }
+
+  // FEATURE: Clone applicant — for entering several members of the same
+  // family/group quickly. Opens a fresh Add form pre-filled with everything
+  // that's usually shared across a family (Destination, Center/City,
+  // Postal code, Home address, Group, Family name, Purpose of journey,
+  // Place of birth, Issue place), while leaving every personal-identity
+  // field blank (name, passport number, date of birth, gender, photo,
+  // passport validity/expiry) so nothing gets copied that must be unique
+  // per person.
+  function cloneApplicant(i){
+    isModalOpen = true;
+    editIdx = -1;
+    originalPassportNo = null;
+    currentPhotoBase64 = null;
+    const a = apps[i];
+    document.getElementById('modal-title').textContent = 'Add applicant (cloned)';
+    document.getElementById('fg').value = a.group || '';
+    document.getElementById('fg2').value = a.FamilyName || '';
+    document.getElementById('fat').value = a.ApplicationType || 'Individual';
+    document.getElementById('fdest').value = a.Destination || 'Spain';
+    onAppTypeChange();
+    onDestinationChange(a.Center || a.City || '');
+    ['ff','fl','fp','fd','fgen','fpid','fped'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('fb').value = a.PlaceOfBirth || '';
+    document.getElementById('fi').value = a.IssuePlace || '';
+    document.getElementById('fa1').value = a.HomeAddressLine1 || '';
+    document.getElementById('fcity').value = a.City || a.Center || '';
+    document.getElementById('fpc').value = a.PostalCode || '';
+    document.getElementById('fms').value = '';
+    document.getElementById('fpj').value = a.PurposeOfJourney || 'Tourism';
+    document.getElementById('fmemb').value = a.MemberStateDestination || a.Destination || 'Spain';
+    document.getElementById('frel').value = a.RelationshipWithPrimaryApplicant || '';
     document.getElementById('fp').removeAttribute('readonly');
     document.getElementById('fp-lock-note').style.display = 'none';
     resetPhotoSlot(null);
