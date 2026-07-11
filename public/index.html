@@ -469,7 +469,7 @@
           </select>
         </div>
         <div class="fg" id="fg-city"><label>City</label><input id="fcity" onkeypress="handleEnter(event,'ff')"></div>
-        <div class="fg"><label>First name *</label><input id="ff" oninput="updateMrz()" onkeypress="handleEnter(event,'fl')"></div>
+        <div class="fg"><label>First name *</label><input id="ff" oninput="updateMrz();onFirstNameChange()" onkeypress="handleEnter(event,'fl')"></div>
         <div class="fg"><label>Last name *</label><input id="fl" oninput="updateMrz()" onkeypress="handleEnter(event,'fp')"></div>
         <div class="fg"><label>Passport number *</label><input id="fp" class="mono" oninput="updateMrz()" onkeypress="handleEnter(event,'fd')"><div class="lock-note" id="fp-lock-note" style="display:none;">🔒 Locked while editing — delete and re-add to change the passport number</div></div>
         <div class="fg"><label>Date of birth</label><input type="date" id="fd" oninput="updateMrz()" onkeypress="handleEnter(event,'fb')"></div>
@@ -629,6 +629,69 @@
     document.getElementById('fcity').value = c;
     setSelectValueSafe('fi', c);
     setSelectValueSafe('fb', c);
+  }
+
+  // FEATURE: First name → Gender auto-fill. As soon as the First name field
+  // matches a known Moroccan/Arabic given name, the Gender select is set
+  // automatically (Male/Female). Only fires on a recognized match — if the
+  // name isn't in the list, Gender is left as-is so nothing is overwritten
+  // with a guess. Matching is case-insensitive and ignores common Latin
+  // transliteration variants.
+  const MALE_FIRST_NAMES = [
+    'mohammed','mohamed','ahmed','ahmad','youssef','yousef','omar','oumar',
+    'hamza','yassine','yassin','anas','ayoub','ayoub','ismail','khalid',
+    'rachid','rashid','said','saeed','hassan','houssam','hicham','hisham',
+    'karim','mehdi','mahdi','nabil','reda','ridwan','salim','saleem',
+    'tarik','tariq','zakaria','zakariae','adam','amine','amin','bilal',
+    'driss','idriss','fouad','jamal','mustapha','moustapha','nourredine',
+    'noureddine','othmane','osman','samir','younes','yunus','abdelali',
+    'abderrahim','abdelaziz','abdelghani','abdelhak','abdelilah','abdellah',
+    'abdelkader','abdellatif','abdelmajid','abdennour','abderrahmane',
+    'abdessamad','achraf','ashraf','adil','aziz','badr','brahim','ibrahim',
+    'chakib','chafik','elmehdi','farid','ghali','habib','hakim','hamid',
+    'imad','issam','jaouad','jawad','kamal','lahcen','larbi','mansour',
+    'marouane','mouad','moad','mounir','nizar','noureddine','rida','rayan',
+    'rayane','said','salah','simohamed','soufiane','sofiane','walid',
+    'wissam','yassir','yasser','ziad','zineddine','abdo','aymane','aymen',
+    'anouar','badreddine','fahd','fahad','hamdane','ilyass','ilias',
+    'ismael','mahmoud','mehdi','naoufal','otmane','rafik','sami','sohaib',
+    'suhaib','taha','yahya','yazid','zaid','zayd'
+  ];
+  const FEMALE_FIRST_NAMES = [
+    'fatima','fatema','khadija','khadeeja','aicha','aisha','zineb','zeineb',
+    'salma','nour','noor','imane','iman','sara','sarah','meryem','maryam',
+    'hind','loubna','sanaa','sana','hanane','hanan','ghita','ghizlane',
+    'nadia','karima','latifa','malika','naima','rajae','raja','samira',
+    'souad','wafaa','wafa','yasmine','yasmin','zahra','zohra','amina',
+    'asmaa','asma','btissam','ibtissam','chaimae','chaimaa','douaa','doha',
+    'fadwa','habiba','jihane','jihan','kaoutar','kawtar','laila','layla',
+    'manal','nawal','ouafae','ouafa','rania','siham','widad','wafaae',
+    'abir','ahlam','amal','assia','aya','bahija','bouchra','dounia',
+    'dunia','farah','farida','ghizlane','hafsa','hajar','hayat','houda',
+    'ikram','ilham','jamila','kenza','khaoula','khawla','lamia','leila',
+    'lina','majda','mounia','nabila','nada','nassima','nawel','oumaima',
+    'oumayma','rabia','rachida','rim','saida','salwa','samia','samya',
+    'sara','selma','soukaina','sukaina','yousra','zakia','zeynab','zineb',
+    'najat','naoual','warda','wiam'
+  ];
+  function detectGenderFromName(name){
+    if (!name) return '';
+    const n = name.trim().toLowerCase();
+    if (!n) return '';
+    // check each whitespace-separated token in case of compound first names
+    const tokens = n.split(/\s+/);
+    for (const t of tokens){
+      if (MALE_FIRST_NAMES.includes(t)) return 'Male';
+      if (FEMALE_FIRST_NAMES.includes(t)) return 'Female';
+    }
+    if (MALE_FIRST_NAMES.includes(n)) return 'Male';
+    if (FEMALE_FIRST_NAMES.includes(n)) return 'Female';
+    return '';
+  }
+  function onFirstNameChange(){
+    const name = document.getElementById('ff').value;
+    const g = detectGenderFromName(name);
+    if (g) document.getElementById('fgen').value = g;
   }
 
   // Rebuilds the Center dropdown's options for the given destination.
