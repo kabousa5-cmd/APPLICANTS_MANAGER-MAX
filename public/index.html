@@ -24,6 +24,18 @@
     --brass:#9C7A3C;
     --brass-light:#C9A86A;
     --white:#FFFFFF;
+    --plum:#6B4C7A;
+    --plum-tint:#F0E7F2;
+    --teal:#1F7A6C;
+    --teal-tint:#E2F2EE;
+    --spain:#A5312B;
+    --spain-tint:#F4E3E1;
+    --portugal:#2F7D4F;
+    --portugal-tint:#E4F1E8;
+    --sky:#2E6E9E;
+    --sky-tint:#E4EEF5;
+    --rose:#C25B7C;
+    --rose-tint:#FAECF1;
     --radius:2px;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
@@ -224,6 +236,30 @@
   .group-tag{
     font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--brass-light);
     color:var(--brass);border-radius:20px;background:#FBF6EC;white-space:nowrap;
+  }
+  .tag-family-type{
+    font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--plum);
+    color:var(--plum);border-radius:20px;background:var(--plum-tint);white-space:nowrap;
+  }
+  .tag-family-name{
+    font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--teal);
+    color:var(--teal);border-radius:20px;background:var(--teal-tint);white-space:nowrap;
+  }
+  .tag-destination-spain{
+    font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--spain);
+    color:var(--spain);border-radius:20px;background:var(--spain-tint);white-space:nowrap;
+  }
+  .tag-destination-portugal{
+    font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--portugal);
+    color:var(--portugal);border-radius:20px;background:var(--portugal-tint);white-space:nowrap;
+  }
+  .tag-gender-male{
+    font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--sky);
+    color:var(--sky);border-radius:20px;background:var(--sky-tint);white-space:nowrap;
+  }
+  .tag-gender-female{
+    font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--rose);
+    color:var(--rose);border-radius:20px;background:var(--rose-tint);white-space:nowrap;
   }
   .tree-arrow{display:inline-block;width:16px;color:var(--brass-light);}
   .destination-header-row{cursor:pointer;}
@@ -928,7 +964,7 @@
         <td class="mono">${a.PassportNo||''}${getExpiryBadge(a.PassportExpiryDate)}</td>
         <td>${a.DateOfBirth || '<span class="dash">—</span>'}</td>
         <td>${a.PlaceOfBirth || '<span class="dash">—</span>'}</td>
-        <td>${a.group ? `<span class="group-tag">${a.group}</span>` : '<span class="dash">—</span>'} ${a.ApplicationType === 'Family' ? '<span class="group-tag">Family</span>' : ''} ${a.FamilyName ? `<span class="group-tag">👪 ${a.FamilyName}</span>` : ''} ${a.Destination ? `<span class="group-tag">${a.Destination}</span>` : ''}</td>
+        <td>${a.group ? `<span class="group-tag">${a.group}</span>` : '<span class="dash">—</span>'} ${a.ApplicationType === 'Family' ? '<span class="tag-family-type">Family</span>' : ''} ${a.FamilyName ? `<span class="tag-family-name">👪 ${a.FamilyName}</span>` : ''} ${a.Destination ? `<span class="${a.Destination === 'Portugal' ? 'tag-destination-portugal' : 'tag-destination-spain'}">${a.Destination}</span>` : ''} ${a.Gender ? `<span class="${a.Gender === 'Female' ? 'tag-gender-female' : 'tag-gender-male'}">${a.Gender}</span>` : ''}</td>
         <td><div class="row-actions">
           ${a.photo ? `<button class="icon-btn" onclick="downloadPhoto(${idx})">Photo</button>` : ''}
           <button class="icon-btn" onclick="edit(${idx})">Edit</button>
