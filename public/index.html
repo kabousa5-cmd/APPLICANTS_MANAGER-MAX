@@ -252,6 +252,12 @@
   .group-header-row:hover td{background:#46335a;}
   .group-header-arrow{display:inline-block;width:16px;color:var(--brass-light);}
   .dash{color:var(--ink-faint);}
+  .expiry-badge{
+    display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;
+    margin-left:6px;white-space:nowrap;vertical-align:middle;
+  }
+  .expiry-badge.expired{background:#FBE4E4;color:#B3261E;border:1px solid #E8B4B0;}
+  .expiry-badge.soon{background:#FDEEDC;color:#9A5B0A;border:1px solid #F0CDA0;}
   .row-actions{display:flex;gap:6px;}
   .icon-btn{
     padding:7px 12px;background:var(--white);border:1px solid var(--line);
@@ -312,6 +318,9 @@
   .fg input:focus, .fg select:focus{outline:none;border-color:var(--navy);background:var(--white);}
   .fg input[readonly]{background:var(--paper-deep);color:var(--ink-soft);cursor:not-allowed;border-style:dashed;}
   .lock-note{font-size:11px;color:var(--ink-faint);margin-top:6px;}
+  .field-hint{font-size:11px;margin-top:6px;}
+  .field-hint.info{color:var(--ink-faint);}
+  .field-hint.warn{color:#B3261E;font-weight:600;}
 
   .mrz{
     margin:0 28px 24px;padding:16px 18px;background:var(--navy-deep);
@@ -469,10 +478,10 @@
           </select>
         </div>
         <div class="fg" id="fg-city"><label>City</label><input id="fcity" onkeypress="handleEnter(event,'ff')"></div>
-        <div class="fg"><label>First name *</label><input id="ff" oninput="updateMrz();onFirstNameChange()" onkeypress="handleEnter(event,'fl')"></div>
-        <div class="fg"><label>Last name *</label><input id="fl" oninput="updateMrz()" onkeypress="handleEnter(event,'fp')"></div>
+        <div class="fg"><label>First name *</label><input id="ff" oninput="toUppercaseField('ff');updateMrz();onFirstNameChange()" onkeypress="handleEnter(event,'fl')"></div>
+        <div class="fg"><label>Last name *</label><input id="fl" oninput="toUppercaseField('fl');updateMrz()" onkeypress="handleEnter(event,'fp')"></div>
         <div class="fg"><label>Passport number *</label><input id="fp" class="mono" oninput="updateMrz()" onkeypress="handleEnter(event,'fd')"><div class="lock-note" id="fp-lock-note" style="display:none;">🔒 Locked while editing — delete and re-add to change the passport number</div></div>
-        <div class="fg"><label>Date of birth</label><input type="date" id="fd" oninput="updateMrz()" onkeypress="handleEnter(event,'fb')"></div>
+        <div class="fg"><label>Date of birth</label><input type="date" id="fd" oninput="updateMrz();onDateOfBirthChange()" onkeypress="handleEnter(event,'fb')"><div class="field-hint" id="fd-hint"></div></div>
         <div class="fg"><label>Place of birth</label>
           <select id="fb" onchange="autoFillIssuePlace()" onkeypress="handleEnter(event,'fi')">
             <option value="">Select…</option>
@@ -489,7 +498,7 @@
             <option>FES</option><option>MARRAKECH</option><option>MEKNES</option><option>OUJDA</option>
           </select>
         </div>
-        <div class="fg"><label>Passport validity date</label><input type="date" id="fpid" onchange="calcPassportExpiry()" onkeypress="handleEnter(event,'fped')"></div>
+        <div class="fg"><label>Passport validity date</label><input type="date" id="fpid" onchange="calcPassportExpiry();validatePassportDates()" onkeypress="handleEnter(event,'fped')"><div class="field-hint" id="fpid-hint"></div></div>
         <div class="fg"><label>Passport expiry date</label><input type="date" id="fped" onkeypress="handleEnter(event,'fa1')"></div>
         <div class="fg full" id="fg-homeaddress"><label>Home address</label><input id="fa1" onkeypress="handleEnter(event,'fpc')"></div>
         <div class="fg" id="fg-postalcode"><label>Postal code</label><input id="fpc" onkeypress="handleEnter(event,'fgen')"></div>
@@ -557,6 +566,68 @@
   // EXPANDED (opposite default from the "All" tree) since the list is
   // already small — collapsing one hides that family's members.
   let collapsedFamilyFolders = new Set();
+
+  // FEATURE: First name / Last name are forced to UPPERCASE as the user
+  // types. Passport documents and the MRZ line are always uppercase, so
+  // storing the names that way from the start keeps the printed record,
+  // the list view, and the MRZ preview all consistent — no more entries
+  // that look fine here but come out mismatched on the printed form.
+  function toUppercaseField(id){
+    const el = document.getElementById(id);
+    const pos = el.selectionStart, endPos = el.selectionEnd;
+    const upper = el.value.toUpperCase();
+    if (upper === el.value) return;
+    el.value = upper;
+    if (pos != null) el.setSelectionRange(pos, endPos);
+  }
+
+  // FEATURE: Date of birth → live age display + future-date guard. As soon
+  // as a birth date is picked, the age in years is shown right under the
+  // field. If the date is in the future (impossible), a warning replaces
+  // the age instead — catches typos like the wrong year picked in the date
+  // widget before the record gets saved.
+  function onDateOfBirthChange(){
+    const val = document.getElementById('fd').value;
+    const hint = document.getElementById('fd-hint');
+    if (!val){ hint.textContent = ''; hint.className = 'field-hint'; return; }
+    const dob = new Date(val + 'T00:00:00');
+    if (isNaN(dob)){ hint.textContent = ''; hint.className = 'field-hint'; return; }
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    if (dob > today){
+      hint.textContent = '⚠ Date of birth is in the future';
+      hint.className = 'field-hint warn';
+      return;
+    }
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age--;
+    hint.textContent = age + (age === 1 ? ' year old' : ' years old');
+    hint.className = 'field-hint info';
+    validatePassportDates();
+  }
+
+  // FEATURE: Passport validity date sanity check — a passport can't have
+  // been issued before the applicant was born. Flags that specific data
+  // entry mistake (usually a wrong year picked in the date widget) without
+  // blocking saving, since the warning alone is enough for the person
+  // entering the data to notice and fix it.
+  function validatePassportDates(){
+    const hint = document.getElementById('fpid-hint');
+    const dobVal = document.getElementById('fd').value;
+    const validityVal = document.getElementById('fpid').value;
+    if (!dobVal || !validityVal){ hint.textContent = ''; hint.className = 'field-hint'; return; }
+    const dob = new Date(dobVal + 'T00:00:00');
+    const validity = new Date(validityVal + 'T00:00:00');
+    if (isNaN(dob) || isNaN(validity)){ hint.textContent = ''; hint.className = 'field-hint'; return; }
+    if (validity < dob){
+      hint.textContent = '⚠ Validity date is before the date of birth';
+      hint.className = 'field-hint warn';
+    } else {
+      hint.textContent = '';
+      hint.className = 'field-hint';
+    }
+  }
 
   function pad(str, len){
     str = (str || '').toUpperCase().replace(/[^A-Z0-9]/g, '<');
@@ -832,13 +903,29 @@
     return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   }
 
+  // FEATURE: Passport expiry warning — flags applicants whose passport is
+  // already expired or expiring within 6 months, right in the list, so
+  // nobody submits a file with a passport that won't be valid long enough.
+  function getExpiryBadge(expiryDateStr){
+    if (!expiryDateStr) return '';
+    const expiry = new Date(expiryDateStr);
+    if (isNaN(expiry)) return '';
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const daysLeft = Math.round((expiry - today) / msPerDay);
+    if (daysLeft < 0) return `<span class="expiry-badge expired">⚠ Expired</span>`;
+    if (daysLeft <= 182) return `<span class="expiry-badge soon">⏳ Expires soon</span>`;
+    return '';
+  }
+
   function renderApplicantRow(a){
     const idx = apps.indexOf(a);
     return `<tr>
         <td class="row-no">${String(idx+1).padStart(3,'0')}</td>
         <td>${a.photo ? `<img class="photo-thumb" src="${a.photo}">` : '<div class="no-photo">—</div>'}</td>
         <td class="name-cell holdable" data-idx="${idx}" onmousedown="holdStart(event,${idx})" onmouseup="holdEnd()" onmouseleave="holdEnd()" ontouchstart="holdStart(event,${idx})" ontouchend="holdEnd()" ontouchcancel="holdEnd()"><div class="hold-fill"></div><strong>${a.FirstName||''} ${a.LastName||''}</strong>${(a.City||a.PostalCode) ? `<small>${[a.City,a.PostalCode].filter(Boolean).join(', ')}</small>` : ''}</td>
-        <td class="mono">${a.PassportNo||''}</td>
+        <td class="mono">${a.PassportNo||''}${getExpiryBadge(a.PassportExpiryDate)}</td>
         <td>${a.DateOfBirth || '<span class="dash">—</span>'}</td>
         <td>${a.PlaceOfBirth || '<span class="dash">—</span>'}</td>
         <td>${a.group ? `<span class="group-tag">${a.group}</span>` : '<span class="dash">—</span>'} ${a.ApplicationType === 'Family' ? '<span class="group-tag">Family</span>' : ''} ${a.FamilyName ? `<span class="group-tag">👪 ${a.FamilyName}</span>` : ''} ${a.Destination ? `<span class="group-tag">${a.Destination}</span>` : ''}</td>
@@ -1101,6 +1188,7 @@
     document.getElementById('upload-status').textContent = '';
     document.getElementById('save-btn').disabled = false;
     updateMrz();
+    onDateOfBirthChange();
     document.getElementById('modal').classList.add('active');
     setTimeout(() => document.getElementById('ff').focus(), 100);
   }
@@ -1141,6 +1229,7 @@
     document.getElementById('upload-status').textContent = '';
     document.getElementById('save-btn').disabled = false;
     updateMrz();
+    onDateOfBirthChange();
     document.getElementById('modal').classList.add('active');
   }
 
